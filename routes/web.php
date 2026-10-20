@@ -26,3 +26,6 @@ Route::get('/admin/dashboard', function () {
 Route::get('/admin/inventory', function () {
     return view('admin.inventory');
 })->name('admin.inventory');
+
+Route::view('/admin/dashboard', 'admin.dashboard');
+Route::view('/admin/inventory', 'admin.inventory');
