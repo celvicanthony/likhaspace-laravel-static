@@ -16,5 +16,5 @@ Static prototype implementation built with Laravel, Blade, and Bootstrap 5 for W
 ## Installation & Setup
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/YOUR_USERNAME/likhaspace-laravel-static.git](https://github.com/YOUR_USERNAME/likhaspace-laravel-static.git)
+   git clone https://github.com/celvicanthony/likhaspace-laravel-static.git
    cd likhaspace-laravel-static

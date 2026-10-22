@@ -281,7 +281,6 @@
     </p>
 
     <div class="explore-toolbar">
-
         <label class="art-search">
             <input
                 id="artSearch"
@@ -329,7 +328,6 @@
         >
             <i class="bi bi-funnel"></i>
         </button>
-
     </div>
 
     @php
@@ -458,7 +456,6 @@
     @endphp
 
     <div class="artwork-grid" id="artworkGrid">
-
         @foreach ($artworks as $art)
             <article
                 class="artwork-card"
@@ -470,9 +467,7 @@
                 data-stock="{{ $art['stock'] }}"
                 data-newest="{{ $art['newest'] }}"
             >
-
                 <div class="artwork-image">
-
                     <a
                         class="artwork-image-link"
                         href="{{ route('product.show', ['id' => $art['id']]) }}"
@@ -489,7 +484,6 @@
                     >
                         <i class="bi bi-heart"></i>
                     </button>
-
                 </div>
 
                 <div class="artwork-info">
@@ -501,15 +495,13 @@
                     <div class="artwork-price">
                         <span>Php {{ number_format($art['price'], 2) }}</span>
                         <br>
-
                         <a href="{{ route('product.show', ['id' => $art['id']]) }}">
                             View details <i class="bi bi-arrow-right"></i>
                         </a>
                     </div>
                 </div>
 
-                <div class="artwork-stock
-                    {{ $art['stock'] === 0 ? 'out-of-stock' : ($art['stock'] <= 3 ? 'low-stock' : '') }}">
+                <div class="artwork-stock {{ $art['stock'] === 0 ? 'out-of-stock' : ($art['stock'] <= 3 ? 'low-stock' : '') }}">
                     @if ($art['stock'] === 0)
                         <i class="bi bi-x-circle"></i> Out of stock
                     @elseif ($art['stock'] <= 3)
@@ -520,10 +512,8 @@
                         Stock: {{ $art['stock'] }} left
                     @endif
                 </div>
-
             </article>
         @endforeach
-
     </div>
 
     <div class="no-artworks" id="noArtworks">
@@ -545,7 +535,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let selectedCategory = 'All';
 
-    // Allow the Home page artist links to filter this page.
     const params = new URLSearchParams(window.location.search);
     const artistFromHome = params.get('artist');
     const categoryFromHome = params.get('category');
@@ -634,6 +623,7 @@ document.addEventListener('DOMContentLoaded', function () {
     filterButton.addEventListener('click', function () {
         selectedCategory = 'All';
         searchInput.value = '';
+        sortSelect.value = 'newest';
 
         categoryButtons.forEach(function (item) {
             item.classList.toggle('active', item.dataset.category === 'All');
