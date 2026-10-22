@@ -1,23 +1,23 @@
-
 <?php
 
 use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\ArtworkController;
 // Home Page
 Route::get('/', function () {
     return view('home');
 })->name('home');
 
-// Screen 1: Explore Art Catalog
-// Assigned to Vinz Jerby T. Acaylar
-Route::get('/explore', function () {
-    return view('explore');
-})->name('explore');
+// Explore Art Catalog
+Route::get('/explore', [ArtworkController::class, 'index'])
+    ->name('explore');
 
-// Screen 2: View Product Detail
-// Assigned to Lauren Jane D. Isleta
-Route::get('/product/{id?}', function ($id = 1) {
-    return view('product', ['id' => $id]);
+// View Product Detail
+Route::get('/product/{id?}', function ($id = null) {
+    if ($id === null) {
+        return redirect()->route('explore');
+    }
+
+    return app(ArtworkController::class)->show($id);
 })->name('product.show');
 
 // Screen 3: Admin Dashboard
@@ -31,3 +31,18 @@ Route::get('/admin/dashboard', function () {
 Route::get('/admin/inventory', function () {
     return view('admin.inventory');
 })->name('admin.inventory');
+
+// Favorites
+Route::get('/favorites', function () {
+    return view('favorites');
+})->name('favorites');
+
+// Shopping Cart
+Route::get('/cart', function () {
+    return view('cart');
+})->name('cart');
+
+// Checkout
+Route::get('/checkout', function () {
+    return view('checkout');
+})->name('checkout');

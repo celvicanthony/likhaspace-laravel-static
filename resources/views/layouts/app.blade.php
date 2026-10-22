@@ -659,17 +659,18 @@
                     Categories
                 </a>
 
-                <a href="#"
-                   onclick="alert('Please sign in to view your favorites.'); return false;">
-                    <i class="bi bi-heart"></i>
-                    My Favorites
-                </a>
+                <a href="{{ route('favorites') }}"
+   class="{{ request()->routeIs('favorites') ? 'active' : '' }}">
+    <i class="bi bi-heart"></i>
+    My Favorites
+</a>
 
-                <a href="#"
-                   onclick="alert('Please sign in to view your cart.'); return false;">
-                    <i class="bi bi-cart3"></i>
-                    My Cart
-                </a>
+<a href="{{ route('cart') }}"
+   class="{{ request()->routeIs('cart') ? 'active' : '' }}">
+    <i class="bi bi-cart3"></i>
+    My Cart
+</a>
+
 
                 <a href="#about">
                     <i class="bi bi-info-circle"></i>

@@ -525,6 +525,7 @@
 
 @push('scripts')
 <script>
+
 document.addEventListener('DOMContentLoaded', function () {
     const searchInput = document.getElementById('artSearch');
     const sortSelect = document.getElementById('artSort');
@@ -533,13 +534,55 @@ document.addEventListener('DOMContentLoaded', function () {
     const categoryButtons = document.querySelectorAll('.category-button');
     const filterButton = document.getElementById('filterButton');
 
+    const favoritesKey = 'likhaspace_favorites';
+
     let selectedCategory = 'All';
+
+    function getFavorites() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(favoritesKey) || '[]');
+            return Array.isArray(saved) ? saved.map(String) : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function saveFavorites(favorites) {
+        localStorage.setItem(favoritesKey, JSON.stringify(favorites));
+    }
+
+    function updateHeart(button, isFavorite) {
+        button.classList.toggle('favorited', isFavorite);
+        button.setAttribute('aria-pressed', isFavorite ? 'true' : 'false');
+        button.setAttribute(
+            'aria-label',
+            isFavorite ? 'Remove from favorites' : 'Add to favorites'
+        );
+
+        const icon = button.querySelector('i');
+
+        if (icon) {
+            icon.className = isFavorite ? 'bi bi-heart-fill' : 'bi bi-heart';
+        }
+    }
+
+    function syncHearts() {
+        const favorites = getFavorites();
+
+        document.querySelectorAll('.artwork-card').forEach(function (card) {
+            const button = card.querySelector('.favorite-button');
+
+            if (button) {
+                updateHeart(button, favorites.includes(String(card.dataset.id)));
+            }
+        });
+    }
 
     const params = new URLSearchParams(window.location.search);
     const artistFromHome = params.get('artist');
     const categoryFromHome = params.get('category');
 
-    if (artistFromHome) {
+    if (artistFromHome && searchInput) {
         searchInput.value = artistFromHome;
     }
 
@@ -617,32 +660,53 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    searchInput.addEventListener('input', updateArtworks);
-    sortSelect.addEventListener('change', updateArtworks);
+    if (searchInput) {
+        searchInput.addEventListener('input', updateArtworks);
+    }
 
-    filterButton.addEventListener('click', function () {
-        selectedCategory = 'All';
-        searchInput.value = '';
-        sortSelect.value = 'newest';
+    if (sortSelect) {
+        sortSelect.addEventListener('change', updateArtworks);
+    }
 
-        categoryButtons.forEach(function (item) {
-            item.classList.toggle('active', item.dataset.category === 'All');
+    if (filterButton) {
+        filterButton.addEventListener('click', function () {
+            selectedCategory = 'All';
+            searchInput.value = '';
+            sortSelect.value = 'newest';
+
+            categoryButtons.forEach(function (item) {
+                item.classList.toggle('active', item.dataset.category === 'All');
+            });
+
+            updateArtworks();
         });
-
-        updateArtworks();
-    });
+    }
 
     document.querySelectorAll('.favorite-button').forEach(function (button) {
         button.addEventListener('click', function () {
-            const favorited = button.classList.toggle('favorited');
-            button.setAttribute('aria-pressed', favorited ? 'true' : 'false');
+            const card = button.closest('.artwork-card');
 
-            const icon = button.querySelector('i');
-            icon.className = favorited ? 'bi bi-heart-fill' : 'bi bi-heart';
+            if (!card) return;
+
+            const artworkId = String(card.dataset.id);
+            let favorites = getFavorites();
+
+            if (favorites.includes(artworkId)) {
+                favorites = favorites.filter(function (id) {
+                    return id !== artworkId;
+                });
+            } else {
+                favorites.push(artworkId);
+            }
+
+            saveFavorites(favorites);
+            syncHearts();
         });
     });
 
+    syncHearts();
     updateArtworks();
 });
+
 </script>
 @endpush

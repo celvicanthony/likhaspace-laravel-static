@@ -222,16 +222,22 @@
         font-weight: 800;
         cursor: pointer;
         box-shadow: 0 3px 10px rgba(0, 0, 0, .15);
-        transition: .2s;
+        transition: background .2s, transform .2s;
     }
 
     .add-cart-button {
+        position: relative;
+        overflow: hidden;
         color: #1d1b68;
         background: #fff;
     }
 
     .add-cart-button:hover {
         background: #f3efff;
+    }
+
+    .add-cart-button:active {
+        transform: scale(.94);
     }
 
     .buy-now-button {
@@ -243,6 +249,11 @@
         background: #0ba5df;
     }
 
+    .product-action-button:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+    }
+
     .product-favorite-button {
         width: 40px;
         height: 40px;
@@ -252,10 +263,81 @@
         color: #e31837;
         font-size: 1.35rem;
         cursor: pointer;
+        transition: transform .2s;
+    }
+
+    .product-favorite-button:active {
+        transform: scale(.85);
     }
 
     .product-favorite-button:not(.favorited) {
         color: #aaa5c0;
+    }
+
+    /* Floating artwork animation */
+    .cart-flying-art {
+        position: fixed;
+        z-index: 99999;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #8058ef;
+        color: #fff;
+        border: 3px solid #fff;
+        border-radius: 15px;
+        box-shadow: 0 8px 22px rgba(80, 48, 180, .3);
+        font-size: 1.5rem;
+        pointer-events: none;
+        will-change: transform, left, top, opacity;
+    }
+
+    @keyframes cart-arrival-bounce {
+        0% {
+            transform: scale(1);
+        }
+        35% {
+            transform: scale(1.35) rotate(-10deg);
+        }
+        60% {
+            transform: scale(.85) rotate(7deg);
+        }
+        80% {
+            transform: scale(1.12);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    .cart-arrival-bounce {
+        animation: cart-arrival-bounce .55s ease;
+    }
+
+    /* Small confirmation message */
+    .cart-toast {
+        position: fixed;
+        z-index: 100000;
+        bottom: 25px;
+        right: 25px;
+        max-width: calc(100vw - 40px);
+        padding: 14px 20px;
+        border-radius: 14px;
+        background: #1d1b68;
+        color: white;
+        box-shadow: 0 8px 25px rgba(29, 27, 104, .25);
+        font-size: .85rem;
+        font-weight: 700;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity .3s ease, transform .3s ease;
+        pointer-events: none;
+    }
+
+    .cart-toast.show {
+        opacity: 1;
+        transform: translateY(0);
     }
 
     .product-benefits {
@@ -326,6 +408,21 @@
 
         .product-stars {
             font-size: 1.3rem;
+        }
+
+        .cart-toast {
+            bottom: 15px;
+            right: 15px;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .cart-arrival-bounce {
+            animation: none;
+        }
+
+        .cart-toast {
+            transition: none;
         }
     }
 </style>
@@ -457,7 +554,6 @@
 
     <div class="product-layout">
 
-        <!-- LARGE ARTWORK PREVIEW -->
         <div class="product-image-card">
             <div class="product-artwork-image">
                 <i class="bi bi-image"></i>
@@ -465,7 +561,6 @@
             </div>
         </div>
 
-        <!-- ARTWORK INFORMATION -->
         <div class="product-information">
 
             <div class="product-rating-row">
@@ -542,6 +637,7 @@
                     id="addToCartButton"
                     {{ $art['stock'] === 0 ? 'disabled' : '' }}
                 >
+                    <i class="bi bi-cart-plus"></i>
                     Add to Cart
                 </button>
 
@@ -561,7 +657,7 @@
                     aria-label="Add to favorites"
                     aria-pressed="false"
                 >
-                    <i class="bi bi-heart-fill"></i>
+                    <i class="bi bi-heart"></i>
                 </button>
 
             </div>
@@ -584,9 +680,10 @@
             </a>
 
         </div>
-
     </div>
 </div>
+
+<div class="cart-toast" id="cartToast" role="status" aria-live="polite"></div>
 
 @endsection
 
@@ -596,30 +693,239 @@ document.addEventListener('DOMContentLoaded', function () {
     const addToCartButton = document.getElementById('addToCartButton');
     const buyNowButton = document.getElementById('buyNowButton');
     const favoriteButton = document.getElementById('productFavoriteButton');
+    const cartToast = document.getElementById('cartToast');
 
+    const artwork = {
+        id: {{ $artworkId }},
+        name: @json($art['name']),
+        artist: @json($art['artist']),
+        price: {{ $art['price'] }},
+        stock: {{ $art['stock'] }}
+    };
+
+    const checkoutUrl = @json(route('checkout'));
+    const cartUrl = @json(route('cart'));
+
+    // Read the saved cart
+    function getCart() {
+        try {
+            const cart = JSON.parse(localStorage.getItem('likhaspace_cart')) || [];
+            return Array.isArray(cart) ? cart : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    // Save artwork to the cart
+    function addToCart() {
+        if (artwork.stock <= 0) {
+            showToast('Sorry, this artwork is out of stock.');
+            return false;
+        }
+
+        const cart = getCart();
+
+        const existingItem = cart.find(function (item) {
+            return Number(item.id) === artwork.id;
+        });
+
+        if (existingItem) {
+            const currentQuantity = Number(existingItem.quantity) || 1;
+
+            if (currentQuantity >= artwork.stock) {
+                showToast('You have reached the available stock limit.');
+                return false;
+            }
+
+            existingItem.quantity = currentQuantity + 1;
+        } else {
+            cart.push({
+                id: artwork.id,
+                quantity: 1
+            });
+        }
+
+        try {
+            localStorage.setItem('likhaspace_cart', JSON.stringify(cart));
+            return true;
+        } catch (error) {
+            showToast('Unable to save your cart. Please check your browser settings.');
+            return false;
+        }
+    }
+
+    // Show a small confirmation message
+    let toastTimer;
+
+    function showToast(message) {
+        cartToast.textContent = message;
+        cartToast.classList.add('show');
+
+        clearTimeout(toastTimer);
+
+        toastTimer = setTimeout(function () {
+            cartToast.classList.remove('show');
+        }, 2500);
+    }
+
+    // Find the cart link in the sidebar
+    function getCartLink() {
+        return Array.from(document.querySelectorAll('a[href]')).find(function (link) {
+            return link.pathname === new URL(cartUrl, window.location.origin).pathname;
+        });
+    }
+
+    // Animate the artwork floating toward the cart
+    function animateArtworkToCart() {
+        const cartLink = getCartLink();
+
+        if (!cartLink) {
+            showToast(artwork.name + ' added to your cart!');
+            return;
+        }
+
+        const start = addToCartButton.getBoundingClientRect();
+        const end = cartLink.getBoundingClientRect();
+
+        const flyer = document.createElement('div');
+        flyer.className = 'cart-flying-art';
+        flyer.innerHTML = '<i class="bi bi-image"></i>';
+        flyer.setAttribute('aria-hidden', 'true');
+
+        const startX = start.left + start.width / 2 - 24;
+        const startY = start.top + start.height / 2 - 24;
+        const endX = end.left + end.width / 2 - 24;
+        const endY = end.top + end.height / 2 - 24;
+
+        flyer.style.left = startX + 'px';
+        flyer.style.top = startY + 'px';
+
+        document.body.appendChild(flyer);
+
+        const midX = (startX + endX) / 2;
+        const midY = Math.min(startY, endY) - 100;
+
+        const animation = flyer.animate([
+            {
+                left: startX + 'px',
+                top: startY + 'px',
+                transform: 'scale(1) rotate(0deg)',
+                opacity: 1
+            },
+            {
+                left: midX + 'px',
+                top: midY + 'px',
+                transform: 'scale(1.2) rotate(-15deg)',
+                opacity: 1,
+                offset: 0.45
+            },
+            {
+                left: endX + 'px',
+                top: endY + 'px',
+                transform: 'scale(.35) rotate(20deg)',
+                opacity: .4
+            }
+        ], {
+            duration: 750,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            fill: 'forwards'
+        });
+
+        animation.onfinish = function () {
+            flyer.remove();
+
+            cartLink.classList.remove('cart-arrival-bounce');
+            void cartLink.offsetWidth;
+            cartLink.classList.add('cart-arrival-bounce');
+
+            setTimeout(function () {
+                cartLink.classList.remove('cart-arrival-bounce');
+            }, 600);
+
+            showToast(artwork.name + ' added to your cart!');
+        };
+
+        animation.oncancel = function () {
+            flyer.remove();
+        };
+    }
+
+    // Add to Cart button
     addToCartButton.addEventListener('click', function () {
-        alert('Cart functionality will be connected when the shopping cart is implemented.');
+        if (addToCart()) {
+            animateArtworkToCart();
+        }
     });
 
+    // Buy Now button
     buyNowButton.addEventListener('click', function () {
-        alert('Checkout functionality will be connected when the checkout system is implemented.');
+        if (addToCart()) {
+            window.location.href = checkoutUrl;
+        }
     });
 
-    favoriteButton.addEventListener('click', function () {
-        const favorited = favoriteButton.classList.toggle('favorited');
+    // Read saved favorites
+    function getFavorites() {
+        try {
+            const favorites = JSON.parse(
+                localStorage.getItem('likhaspace_favorites')
+            ) || [];
+
+            return Array.isArray(favorites) ? favorites.map(Number) : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    // Update the heart icon
+    function updateFavoriteButton(isFavorited) {
+        favoriteButton.classList.toggle('favorited', isFavorited);
 
         favoriteButton.setAttribute(
             'aria-pressed',
-            favorited ? 'true' : 'false'
+            isFavorited ? 'true' : 'false'
         );
 
         favoriteButton.setAttribute(
             'aria-label',
-            favorited ? 'Remove from favorites' : 'Add to favorites'
+            isFavorited ? 'Remove from favorites' : 'Add to favorites'
         );
 
         favoriteButton.querySelector('i').className =
-            favorited ? 'bi bi-heart-fill' : 'bi bi-heart';
+            isFavorited ? 'bi bi-heart-fill' : 'bi bi-heart';
+    }
+
+    // Restore favorite status on page load
+    updateFavoriteButton(getFavorites().includes(artwork.id));
+
+    // Toggle favorites
+    favoriteButton.addEventListener('click', function () {
+        let favorites = getFavorites();
+        const isFavorited = favorites.includes(artwork.id);
+
+        if (isFavorited) {
+            favorites = favorites.filter(function (id) {
+                return id !== artwork.id;
+            });
+        } else {
+            favorites.push(artwork.id);
+        }
+
+        try {
+            localStorage.setItem(
+                'likhaspace_favorites',
+                JSON.stringify(favorites)
+            );
+
+            updateFavoriteButton(!isFavorited);
+            showToast(
+                isFavorited
+                    ? 'Removed from your favorites.'
+                    : 'Added to your favorites!'
+            );
+        } catch (error) {
+            showToast('Unable to save favorites in this browser.');
+        }
     });
 });
 </script>
