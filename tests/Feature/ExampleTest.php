@@ -14,6 +14,12 @@ class ExampleTest extends TestCase
     {
         $response = $this->get('/');
 
-        $response->assertStatus(200);
+        $response->assertOk()
+            ->assertViewIs('home')
+            ->assertSee('Featured collections')
+            ->assertSee('Philippines')
+            ->assertSee('Greece')
+            ->assertSee('Scotland')
+            ->assertSee('Japan');
     }
 }

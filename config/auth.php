@@ -20,6 +20,8 @@ return [
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 
+    'admin_clearance_pin' => env('SUPER_ADMIN_MASTER_PIN'),
+
     /*
     |--------------------------------------------------------------------------
     | Authentication Guards

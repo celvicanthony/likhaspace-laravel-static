@@ -18,8 +18,9 @@
     .art-image { position: relative; padding: 12px 12px 0; }
     .art-image img { width: 100%; height: clamp(145px, 16vw, 190px); border-radius: 13px; object-fit: cover; }
     .art-country { position: absolute; top: 21px; left: 21px; padding: 6px 10px; border-radius: 999px; background: rgba(31, 25, 54, .72); color: #fff; font-size: .7rem; }
-    .favorite-button { position: absolute; top: 20px; right: 20px; display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 50%; background: #fff; color: #7a718f; }
-    .favorite-button.is-favorite { color: #e84b79; }
+    .favorite-form { position: absolute; top: 20px; right: 20px; z-index: 2; }
+    .favorite-button { display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 50%; background: var(--surface); color: var(--studio-link); }
+    .favorite-button.is-favorite { color: var(--studio-primary); }
     .art-card .card-body { padding: 13px 16px 16px; }
     .art-name { margin: 0; color: var(--ink); font-size: .95rem; font-weight: 700; }
     .art-artist { margin: 3px 0 12px; color: var(--muted); font-size: .8rem; }
@@ -49,10 +50,10 @@
         <input id="artSearch" type="search" class="form-control border-start-0 rounded-end-pill" placeholder="Search artworks, artists, or styles" aria-label="Search artworks">
     </div>
     <div class="filter-pills" role="group" aria-label="Filter by location">
-        <button type="button" class="filter-pill active" data-category="all">All</button>
-        <button type="button" class="filter-pill" data-category="Philippines">Philippines</button>
-        <button type="button" class="filter-pill" data-category="Japan">Japan</button>
-        <button type="button" class="filter-pill" data-category="Greece">Greece</button>
+        <button type="button" class="filter-pill {{ $selectedCountry === 'all' ? 'active' : '' }}" data-category="all">All</button>
+        @foreach (['Philippines', 'Greece', 'Scotland', 'Japan'] as $country)
+                <button type="button" class="filter-pill {{ $selectedCountry === $country ? 'active' : '' }}" data-category="{{ $country }}">{{ $country }}</button>
+        @endforeach
     </div>
     <select class="form-select sort-select" aria-label="Sort artworks">
         <option>Newest</option>
@@ -63,34 +64,30 @@
 
 <div class="d-flex align-items-center justify-content-between mb-3">
     <h2 class="h6 fw-bold mb-0">Featured artworks</h2>
-    <span id="artCount" class="small text-muted">Showing 6 artworks</span>
+    <span id="artCount" class="small text-muted">Showing {{ count($artworks) }} artworks</span>
 </div>
 
 <section id="artworks" class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-3 g-lg-4" aria-label="Featured artworks">
-    @php
-        $artworks = [
-            ['Cyberpunk Manila Sunset', 'Juan Kanlaon', 'Philippines', '₱1,250.00', 'photo-1618005182384-a83a8bd57fbe'],
-            ['Echoes of Mount Olympus', 'AAthena Art', 'Greece', '₱2,100.00', 'photo-1568605117036-5fe5e7bab0b7'],
-            ['Neo-Kyoto Cherry Blossom', 'Kaito Renders', 'Japan', '₱1,850.00', 'photo-1578632767115-351597cf2477'],
-            ['Ibong Adarna Reimagined', 'Maria Makiling', 'Philippines', '₱3,500.00', 'photo-1579783902614-a3fb3927b675'],
-            ['Futuristic Shinjuku Alley', 'Yuki Pixel', 'Japan', '₱1,500.00', 'photo-1607604276583-eef5d076aa5f'],
-            ['Parthenon Under the Stars', 'Nikolaos 3D', 'Greece', '₱2,800.00', 'photo-1544816155-12df9643f363'],
-        ];
-    @endphp
     @foreach ($artworks as $index => $artwork)
-        <div class="col artwork-item" data-category="{{ $artwork[2] }}" data-search="{{ strtolower(implode(' ', $artwork)) }}">
+        <div class="col artwork-item" data-category="{{ $artwork['country'] }}" data-search="{{ strtolower($artwork['title'].' '.$artwork['artist'].' '.$artwork['country']) }}">
             <article class="card art-card">
                 <div class="art-image">
-                    <img src="https://images.unsplash.com/{{ $artwork[4] }}?q=80&w=700&auto=format&fit=crop" alt="{{ $artwork[0] }}" loading="lazy">
-                    <span class="art-country">{{ $artwork[2] }}</span>
-                    <button class="favorite-button" type="button" aria-label="Add {{ $artwork[0] }} to favorites" aria-pressed="false"><i class="bi bi-heart-fill"></i></button>
+                    <img src="https://images.unsplash.com/{{ $artwork['image'] }}?q=80&w=700&auto=format&fit=crop" alt="{{ $artwork['title'] }}" loading="lazy">
+                    <span class="art-country">{{ $artwork['country'] }}</span>
+                    @if (session('role', 'client') === 'client')
+                        <form method="POST" action="{{ route('favorites.toggle', $index) }}" class="favorite-form">
+                            @csrf
+                            @php($isFavorite = in_array((string) $index, $favorites, true))
+                            <button class="favorite-button {{ $isFavorite ? 'is-favorite' : '' }}" type="submit" aria-label="{{ $isFavorite ? 'Remove' : 'Add' }} {{ $artwork['title'] }} {{ $isFavorite ? 'from' : 'to' }} favorites" aria-pressed="{{ $isFavorite ? 'true' : 'false' }}"><i class="bi bi-heart-fill"></i></button>
+                        </form>
+                    @endif
                 </div>
                 <div class="card-body">
-                    <h3 class="art-name">{{ $artwork[0] }}</h3>
-                    <p class="art-artist">By {{ $artwork[1] }}</p>
+                    <h3 class="art-name">{{ $artwork['title'] }}</h3>
+                    <p class="art-artist">By {{ $artwork['artist'] }}</p>
                     <div class="d-flex align-items-center justify-content-between border-top pt-3" style="border-color: var(--line) !important">
-                        <span class="art-price">{{ $artwork[3] }}</span>
-                        <a href="{{ route('product.show', $index + 1) }}" class="art-link">View details <i class="bi bi-arrow-right"></i></a>
+                        <span class="art-price">₱{{ number_format($artwork['price'], 2) }}</span>
+                        <a href="{{ route('product.show', $index) }}" class="art-link">View details <i class="bi bi-arrow-right"></i></a>
                     </div>
                 </div>
             </article>
@@ -106,7 +103,7 @@
     const artworkItems = [...document.querySelectorAll('.artwork-item')];
     const categoryButtons = [...document.querySelectorAll('button[data-category]')];
     const emptyResults = document.getElementById('emptyResults');
-    let selectedCategory = 'all';
+    let selectedCategory = @json($selectedCountry);
 
     function filterArtworks() {
         const query = searchField.value.trim().toLowerCase();
@@ -121,17 +118,13 @@
         emptyResults.style.display = visibleCount ? 'none' : 'block';
     }
 
+    categoryButtons.forEach((button) => button.classList.toggle('active', button.dataset.category === selectedCategory));
+    filterArtworks();
     searchField.addEventListener('input', filterArtworks);
     categoryButtons.forEach((button) => button.addEventListener('click', () => {
         selectedCategory = button.dataset.category;
         categoryButtons.forEach((filter) => filter.classList.toggle('active', filter === button));
         filterArtworks();
-    }));
-    document.querySelectorAll('.favorite-button').forEach((button) => button.addEventListener('click', () => {
-        const isFavorite = button.getAttribute('aria-pressed') !== 'true';
-        button.setAttribute('aria-pressed', String(isFavorite));
-        button.classList.toggle('is-favorite', isFavorite);
-        button.setAttribute('aria-label', `${isFavorite ? 'Remove' : 'Add'} ${button.closest('.art-card').querySelector('.art-name').textContent} ${isFavorite ? 'from' : 'to'} favorites`);
     }));
 </script>
 @endpush
