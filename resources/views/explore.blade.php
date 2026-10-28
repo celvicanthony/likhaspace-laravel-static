@@ -52,7 +52,7 @@
     <div class="filter-pills" role="group" aria-label="Filter by location">
         <button type="button" class="filter-pill {{ $selectedCountry === 'all' ? 'active' : '' }}" data-category="all">All</button>
         @foreach (['Philippines', 'Greece', 'Scotland', 'Japan'] as $country)
-                <button type="button" class="filter-pill {{ $selectedCountry === $country ? 'active' : '' }}" data-category="{{ $country }}">{{ $country }}</button>
+            <button type="button" class="filter-pill {{ $selectedCountry === $country ? 'active' : '' }}" data-category="{{ $country }}">{{ $country }}</button>
         @endforeach
     </div>
     <select class="form-select sort-select" aria-label="Sort artworks">
@@ -74,7 +74,7 @@
                 <div class="art-image">
                     <img src="https://images.unsplash.com/{{ $artwork['image'] }}?q=80&w=700&auto=format&fit=crop" alt="{{ $artwork['title'] }}" loading="lazy">
                     <span class="art-country">{{ $artwork['country'] }}</span>
-                    @if (session('role', 'client') === 'client')
+                    @if (auth()->user()?->role === 'client')
                         <form method="POST" action="{{ route('favorites.toggle', $index) }}" class="favorite-form">
                             @csrf
                             @php($isFavorite = in_array((string) $index, $favorites, true))
