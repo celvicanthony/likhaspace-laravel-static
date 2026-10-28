@@ -1,219 +1,130 @@
 @extends('layouts.app')
 
+@section('title', 'Explore Artworks | LikhaSpace')
+
+@push('styles')
+<style>
+    .explore-heading { margin-bottom: 24px; }
+    .explore-heading h1 { margin-bottom: 4px; font-size: clamp(1.7rem, 3vw, 2.35rem); font-weight: 700; letter-spacing: -.04em; }
+    .explore-heading p { margin: 0; color: var(--muted); }
+    .explore-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 22px; }
+    .art-search { flex: 1 1 250px; max-width: 360px; }
+    .filter-pills { display: flex; flex: 1 1 360px; flex-wrap: wrap; gap: 8px; }
+    .filter-pill { padding: 7px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); font-size: .82rem; font-weight: 600; }
+    .filter-pill:hover, .filter-pill.active { border-color: var(--purple); background: var(--surface-strong); color: var(--purple); }
+    .sort-select { width: auto; min-width: 128px; border-radius: 999px; }
+    .art-card { height: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow); transition: transform .2s ease, box-shadow .2s ease; }
+    .art-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(32, 23, 69, .16); }
+    .art-image { position: relative; padding: 12px 12px 0; }
+    .art-image img { width: 100%; height: clamp(145px, 16vw, 190px); border-radius: 13px; object-fit: cover; }
+    .art-country { position: absolute; top: 21px; left: 21px; padding: 6px 10px; border-radius: 999px; background: rgba(31, 25, 54, .72); color: #fff; font-size: .7rem; }
+    .favorite-form { position: absolute; top: 20px; right: 20px; z-index: 2; }
+    .favorite-button { display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 50%; background: var(--surface); color: var(--studio-link); }
+    .favorite-button.is-favorite { color: var(--studio-primary); }
+    .art-card .card-body { padding: 13px 16px 16px; }
+    .art-name { margin: 0; color: var(--ink); font-size: .95rem; font-weight: 700; }
+    .art-artist { margin: 3px 0 12px; color: var(--muted); font-size: .8rem; }
+    .art-price { color: var(--ink); font-size: .9rem; font-weight: 700; white-space: nowrap; }
+    .art-link { color: var(--purple); font-size: .8rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+    .art-link:hover { color: var(--purple-hover); }
+    .empty-results { display: none; padding: 48px 16px; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); text-align: center; }
+    @media (max-width: 575.98px) {
+        .explore-toolbar { gap: 10px; }
+        .art-search { max-width: none; }
+        .filter-pills { flex-basis: 100%; }
+        .filter-pill { padding: 6px 12px; }
+        .sort-select { margin-left: auto; }
+    }
+</style>
+@endpush
+
 @section('content')
-<div class="container py-4">
-    <!-- Hero Banner / Storefront Title -->
-    <div class="text-center mb-5">
-        <h1 class="fw-bold text-white display-5 mb-2">Explore Digital Obra</h1>
-        <p class="text-muted fs-6">Discover, license, and download authentic digital art from local creators.</p>
+<section class="explore-heading">
+    <h1>Explore Artworks</h1>
+    <p>Discover digital artwork from independent artists around the world.</p>
+</section>
+
+<section class="explore-toolbar" aria-label="Search and filter artworks">
+    <div class="input-group art-search">
+        <span class="input-group-text border-end-0 rounded-start-pill ps-3"><i class="bi bi-search"></i></span>
+        <input id="artSearch" type="search" class="form-control border-start-0 rounded-end-pill" placeholder="Search artworks, artists, or styles" aria-label="Search artworks">
     </div>
-
-    <!-- Search Bar & Category Filter Section -->
-    <div class="row justify-content-center mb-5">
-        <div class="col-lg-10">
-            <!-- Top Search Bar -->
-            <form action="#" method="GET" class="mb-4" onsubmit="event.preventDefault(); alert('[SIMULATED ACTION] Search submitted!');">
-                <div class="input-group input-group-lg shadow-sm">
-                    <span class="input-group-text bg-studio-card border-secondary border-opacity-25 text-muted px-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
-                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-                        </svg>
-                    </span>
-                    <input type="text" class="form-control bg-studio-card text-white border-secondary border-opacity-25 fs-6" placeholder="Search by artwork title, artist, or tags (e.g., Cyberpunk, Manila)...">
-                    <button class="btn btn-violet px-4 fw-bold" type="submit">Search</button>
-                </div>
-            </form>
-
-            <!-- Category Filter Tags -->
-            <div class="d-flex flex-wrap gap-2 justify-content-center align-items-center">
-                <span class="text-muted me-2 small fw-semibold">Categories:</span>
-                <button type="button" class="btn btn-sm btn-violet rounded-pill px-3 shadow-sm">All Obra</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary text-white rounded-pill px-3">Philippines</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary text-white rounded-pill px-3">Greece</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary text-white rounded-pill px-3">Japan</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary text-white rounded-pill px-3">3D Assets</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary text-white rounded-pill px-3">Vector Art</button>
-            </div>
-        </div>
+    <div class="filter-pills" role="group" aria-label="Filter by location">
+        <button type="button" class="filter-pill {{ $selectedCountry === 'all' ? 'active' : '' }}" data-category="all">All</button>
+        @foreach (['Philippines', 'Greece', 'Scotland', 'Japan'] as $country)
+            <button type="button" class="filter-pill {{ $selectedCountry === $country ? 'active' : '' }}" data-category="{{ $country }}">{{ $country }}</button>
+        @endforeach
     </div>
+    <select class="form-select sort-select" aria-label="Sort artworks">
+        <option>Newest</option>
+        <option>Price: low to high</option>
+        <option>Price: high to low</option>
+    </select>
+</section>
 
-    <!-- Artwork Grid Section -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="h5 text-white fw-bold m-0">Featured Marketplace Items</h2>
-        <span class="text-muted small">Showing 6 artworks</span>
-    </div>
-
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
-
-        <!-- Artwork Card 1 (Philippines) -->
-        <div class="col">
-            <div class="card h-100 bg-studio-card text-white border border-secondary border-opacity-25 rounded-4 shadow-sm overflow-hidden">
-                <div class="position-relative">
-                    <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop" class="card-img-top" alt="Cyberpunk Manila" style="height: 240px; object-fit: cover;">
-                    <span class="badge bg-dark bg-opacity-75 text-cyan border border-info border-opacity-25 position-absolute top-0 start-0 m-3 rounded-pill">Philippines</span>
-                    <!-- Heart Icon (Interactive Favorite Button) -->
-                    <button class="btn btn-dark btn-sm rounded-circle position-absolute top-0 end-0 m-3 p-2 border-0 bg-opacity-75" onclick="this.classList.toggle('text-danger'); alert('[SIMULATED ACTION] Added to Favorites!');" title="Favorite">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-heart-fill" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/>
-                        </svg>
-                    </button>
-                </div>
-                <div class="card-body p-4 d-flex flex-column justify-content-between">
-                    <div>
-                        <h5 class="card-title fw-bold text-white mb-1">Cyberpunk Manila Sunset</h5>
-                        <p class="text-muted small mb-3">By <strong class="text-white">@JuanKanlaon</strong></p>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
-                        <div>
-                            <small class="text-muted d-block" style="font-size: 0.75rem;">Price</small>
-                            <span class="fs-5 fw-bold text-cyan">₱1,250.00</span>
-                        </div>
-                        <a href="{{ route('client.show', 1) }}" class="btn btn-violet btn-sm rounded-pill px-3 fw-semibold">View Obra</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Artwork Card 2 (Greece) -->
-        <div class="col">
-            <div class="card h-100 bg-studio-card text-white border border-secondary border-opacity-25 rounded-4 shadow-sm overflow-hidden">
-                <div class="position-relative">
-                    <img src="https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?q=80&w=600&auto=format&fit=crop" class="card-img-top" alt="Olympus Myth" style="height: 240px; object-fit: cover;">
-                    <span class="badge bg-dark bg-opacity-75 text-cyan border border-info border-opacity-25 position-absolute top-0 start-0 m-3 rounded-pill">Greece</span>
-                    <button class="btn btn-dark btn-sm rounded-circle position-absolute top-0 end-0 m-3 p-2 border-0 bg-opacity-75" onclick="this.classList.toggle('text-danger'); alert('[SIMULATED ACTION] Added to Favorites!');" title="Favorite">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-heart-fill" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/>
-                        </svg>
-                    </button>
-                </div>
-                <div class="card-body p-4 d-flex flex-column justify-content-between">
-                    <div>
-                        <h5 class="card-title fw-bold text-white mb-1">Echoes of Mount Olympus</h5>
-                        <p class="text-muted small mb-3">By <strong class="text-white">@AAthena_Art</strong></p>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
-                        <div>
-                            <small class="text-muted d-block" style="font-size: 0.75rem;">Price</small>
-                            <span class="fs-5 fw-bold text-cyan">₱2,100.00</span>
-                        </div>
-                        <a href="{{ route('client.show', 2) }}" class="btn btn-violet btn-sm rounded-pill px-3 fw-semibold">View Obra</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Artwork Card 3 (Japan) -->
-        <div class="col">
-            <div class="card h-100 bg-studio-card text-white border border-secondary border-opacity-25 rounded-4 shadow-sm overflow-hidden">
-                <div class="position-relative">
-                    <img src="https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=600&auto=format&fit=crop" class="card-img-top" alt="Kyoto Cherry Blossom" style="height: 240px; object-fit: cover;">
-                    <span class="badge bg-dark bg-opacity-75 text-cyan border border-info border-opacity-25 position-absolute top-0 start-0 m-3 rounded-pill">Japan</span>
-                    <button class="btn btn-dark btn-sm rounded-circle position-absolute top-0 end-0 m-3 p-2 border-0 bg-opacity-75" onclick="this.classList.toggle('text-danger'); alert('[SIMULATED ACTION] Added to Favorites!');" title="Favorite">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-heart-fill" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/>
-                        </svg>
-                    </button>
-                </div>
-                <div class="card-body p-4 d-flex flex-column justify-content-between">
-                    <div>
-                        <h5 class="card-title fw-bold text-white mb-1">Neo-Kyoto Cherry Blossom</h5>
-                        <p class="text-muted small mb-3">By <strong class="text-white">@KaitoRenders</strong></p>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
-                        <div>
-                            <small class="text-muted d-block" style="font-size: 0.75rem;">Price</small>
-                            <span class="fs-5 fw-bold text-cyan">₱1,850.00</span>
-                        </div>
-                        <a href="{{ route('client.show', 3) }}" class="btn btn-violet btn-sm rounded-pill px-3 fw-semibold">View Obra</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Artwork Card 4 (Philippines) -->
-        <div class="col">
-            <div class="card h-100 bg-studio-card text-white border border-secondary border-opacity-25 rounded-4 shadow-sm overflow-hidden">
-                <div class="position-relative">
-                    <img src="https://images.unsplash.com/photo-1579783902614-a3fb3927b675?q=80&w=600&auto=format&fit=crop" class="card-img-top" alt="Ibong Adarna Reimagined" style="height: 240px; object-fit: cover;">
-                    <span class="badge bg-dark bg-opacity-75 text-cyan border border-info border-opacity-25 position-absolute top-0 start-0 m-3 rounded-pill">Philippines</span>
-                    <button class="btn btn-dark btn-sm rounded-circle position-absolute top-0 end-0 m-3 p-2 border-0 bg-opacity-75" onclick="this.classList.toggle('text-danger'); alert('[SIMULATED ACTION] Added to Favorites!');" title="Favorite">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-heart-fill" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/>
-                        </svg>
-                    </button>
-                </div>
-                <div class="card-body p-4 d-flex flex-column justify-content-between">
-                    <div>
-                        <h5 class="card-title fw-bold text-white mb-1">Ibong Adarna Reimagined</h5>
-                        <p class="text-muted small mb-3">By <strong class="text-white">@MariaMakiling_Art</strong></p>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
-                        <div>
-                            <small class="text-muted d-block" style="font-size: 0.75rem;">Price</small>
-                            <span class="fs-5 fw-bold text-cyan">₱3,500.00</span>
-                        </div>
-                        <a href="{{ route('client.show', 4) }}" class="btn btn-violet btn-sm rounded-pill px-3 fw-semibold">View Obra</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Artwork Card 5 (Japan) -->
-        <div class="col">
-            <div class="card h-100 bg-studio-card text-white border border-secondary border-opacity-25 rounded-4 shadow-sm overflow-hidden">
-                <div class="position-relative">
-                    <img src="https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=600&auto=format&fit=crop" class="card-img-top" alt="Futuristic Shinjuku" style="height: 240px; object-fit: cover;">
-                    <span class="badge bg-dark bg-opacity-75 text-cyan border border-info border-opacity-25 position-absolute top-0 start-0 m-3 rounded-pill">Japan</span>
-                    <button class="btn btn-dark btn-sm rounded-circle position-absolute top-0 end-0 m-3 p-2 border-0 bg-opacity-75" onclick="this.classList.toggle('text-danger'); alert('[SIMULATED ACTION] Added to Favorites!');" title="Favorite">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-heart-fill" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/>
-                        </svg>
-                    </button>
-                </div>
-                <div class="card-body p-4 d-flex flex-column justify-content-between">
-                    <div>
-                        <h5 class="card-title fw-bold text-white mb-1">Futuristic Shinjuku Alley</h5>
-                        <p class="text-muted small mb-3">By <strong class="text-white">@YukiPixel</strong></p>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
-                        <div>
-                            <small class="text-muted d-block" style="font-size: 0.75rem;">Price</small>
-                            <span class="fs-5 fw-bold text-cyan">₱1,500.00</span>
-                        </div>
-                        <a href="{{ route('client.show', 5) }}" class="btn btn-violet btn-sm rounded-pill px-3 fw-semibold">View Obra</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Artwork Card 6 (Greece) -->
-        <div class="col">
-            <div class="card h-100 bg-studio-card text-white border border-secondary border-opacity-25 rounded-4 shadow-sm overflow-hidden">
-                <div class="position-relative">
-                    <img src="https://images.unsplash.com/photo-1544816155-12df9643f363?q=80&w=600&auto=format&fit=crop" class="card-img-top" alt="Parthenon Night 3D" style="height: 240px; object-fit: cover;">
-                    <span class="badge bg-dark bg-opacity-75 text-cyan border border-info border-opacity-25 position-absolute top-0 start-0 m-3 rounded-pill">Greece</span>
-                    <button class="btn btn-dark btn-sm rounded-circle position-absolute top-0 end-0 m-3 p-2 border-0 bg-opacity-75" onclick="this.classList.toggle('text-danger'); alert('[SIMULATED ACTION] Added to Favorites!');" title="Favorite">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-heart-fill" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/>
-                        </svg>
-                    </button>
-                </div>
-                <div class="card-body p-4 d-flex flex-column justify-content-between">
-                    <div>
-                        <h5 class="card-title fw-bold text-white mb-1">Parthenon Under the Stars</h5>
-                        <p class="text-muted small mb-3">By <strong class="text-white">@Nikolaos3D</strong></p>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
-                        <div>
-                            <small class="text-muted d-block" style="font-size: 0.75rem;">Price</small>
-                            <span class="fs-5 fw-bold text-cyan">₱2,800.00</span>
-                        </div>
-                        <a href="{{ route('client.show', 6) }}" class="btn btn-violet btn-sm rounded-pill px-3 fw-semibold">View Obra</a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    </div>
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h2 class="h6 fw-bold mb-0">Featured artworks</h2>
+    <span id="artCount" class="small text-muted">Showing {{ count($artworks) }} artworks</span>
 </div>
+
+<section id="artworks" class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-3 g-lg-4" aria-label="Featured artworks">
+    @foreach ($artworks as $index => $artwork)
+        <div class="col artwork-item" data-category="{{ $artwork['country'] }}" data-search="{{ strtolower($artwork['title'].' '.$artwork['artist'].' '.$artwork['country']) }}">
+            <article class="card art-card">
+                <div class="art-image">
+                    <img src="https://images.unsplash.com/{{ $artwork['image'] }}?q=80&w=700&auto=format&fit=crop" alt="{{ $artwork['title'] }}" loading="lazy">
+                    <span class="art-country">{{ $artwork['country'] }}</span>
+                    @if (auth()->user()?->role === 'client')
+                        <form method="POST" action="{{ route('favorites.toggle', $index) }}" class="favorite-form">
+                            @csrf
+                            @php($isFavorite = in_array((string) $index, $favorites, true))
+                            <button class="favorite-button {{ $isFavorite ? 'is-favorite' : '' }}" type="submit" aria-label="{{ $isFavorite ? 'Remove' : 'Add' }} {{ $artwork['title'] }} {{ $isFavorite ? 'from' : 'to' }} favorites" aria-pressed="{{ $isFavorite ? 'true' : 'false' }}"><i class="bi bi-heart-fill"></i></button>
+                        </form>
+                    @endif
+                </div>
+                <div class="card-body">
+                    <h3 class="art-name">{{ $artwork['title'] }}</h3>
+                    <p class="art-artist">By {{ $artwork['artist'] }}</p>
+                    <div class="d-flex align-items-center justify-content-between border-top pt-3" style="border-color: var(--line) !important">
+                        <span class="art-price">₱{{ number_format($artwork['price'], 2) }}</span>
+                        <a href="{{ route('product.show', $index) }}" class="art-link">View details <i class="bi bi-arrow-right"></i></a>
+                    </div>
+                </div>
+            </article>
+        </div>
+    @endforeach
+</section>
+<div class="empty-results mt-3" id="emptyResults">No artworks match your search. Try another artist, style, or location.</div>
 @endsection
+
+@push('scripts')
+<script>
+    const searchField = document.getElementById('artSearch');
+    const artworkItems = [...document.querySelectorAll('.artwork-item')];
+    const categoryButtons = [...document.querySelectorAll('button[data-category]')];
+    const emptyResults = document.getElementById('emptyResults');
+    let selectedCategory = @json($selectedCountry);
+
+    function filterArtworks() {
+        const query = searchField.value.trim().toLowerCase();
+        let visibleCount = 0;
+        artworkItems.forEach((item) => {
+            const matchesCategory = selectedCategory === 'all' || item.dataset.category === selectedCategory;
+            const matchesSearch = item.dataset.search.includes(query);
+            item.classList.toggle('d-none', !matchesCategory || !matchesSearch);
+            if (matchesCategory && matchesSearch) visibleCount++;
+        });
+        document.getElementById('artCount').textContent = `Showing ${visibleCount} artwork${visibleCount === 1 ? '' : 's'}`;
+        emptyResults.style.display = visibleCount ? 'none' : 'block';
+    }
+
+    categoryButtons.forEach((button) => button.classList.toggle('active', button.dataset.category === selectedCategory));
+    filterArtworks();
+    searchField.addEventListener('input', filterArtworks);
+    categoryButtons.forEach((button) => button.addEventListener('click', () => {
+        selectedCategory = button.dataset.category;
+        categoryButtons.forEach((filter) => filter.classList.toggle('active', filter === button));
+        filterArtworks();
+    }));
+</script>
+@endpush
