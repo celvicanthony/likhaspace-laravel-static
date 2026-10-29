@@ -1,12 +1,23 @@
-# LikhaSpace - Digital Artwork E-Commerce Web Application
+# PT2 WEEK 13 — GITHUB REPOSITORY AND TEAM COLLABORATION SUBMISSION
+PROJECT TITLE: LikhaSpace — Digital Artwork Marketplace
+COURSE: Laravel Blade & Bootstrap Web Development
 
-Static prototype implementation built with Laravel, Blade, and Bootstrap 5 for Week 12.
+## 1. PUBLIC REPOSITORY LINK
+GitHub Repository URL:
+https://github.com/celvicanthony/likhaspace-laravel-static.git
 
-## Team Members & Task Division
-- **Team Leader / System Architect**: Setup base layout (`layouts/app.blade.php`), master routing (`routes/web.php`), Bootstrap CDN integration, and README documentation.
-- **Vinz Jerby T. Acaylar**: Client Explore Catalog (`explore.blade.php`).
-- **Lauren Jane D. Isleta**: Product Detail View & Sign In Modal (`product.blade.php`, `auth/login-modal.blade.php`).
-- **Janessa Mae C. Ramos**: Admin Dashboard & Inventory (`admin/dashboard.blade.php`, `admin/inventory.blade.php`).
+## 2. GROUP MEMBERS & GITHUB USERNAME IDENTIFIERS
+- Celvic Anthony M. Borromeo  | GitHub: @celvicanthony (Project Lead / Full-Stack Architect)
+- Janessa Mae C. Ramos        | GitHub: @janessamaeramos (UI/UX Designer / Frontend Engineer)
+- Lauren Jane Isleta          | GitHub: @laurenjaneisleta (Content Strategist / Design Integrator)
+- Vinz Jerby Acaylar          | GitHub: @vinzjerbyacaylar (Quality Assurance / Systems Analyst)
+
+## 3. SUMMARY OF TECHNICAL DELIVERABLES & CONTRIBUTIONS
+- Architecture: 3-tier user ecosystem (Clients/Buyers, independent Artists/Creators managing portfolios, and central Admin).
+- Authentication & Security: Replaced temporary role-switching previews with editable default credentials and a hidden administrative clearance portal.
+- Figma Design System: Enforced strict color identity utilizing Warm Studio Cream (`#FAF7F2`), soft light violet panel cards (`#F2EEF9`), and deep slate background options.
+- Route & Connection Integrity: Standardized all internal links and form submissions using dynamic Laravel `route('...')` helpers to eliminate port errors (`ERR_CONNECTION_REFUSED`).
+- Version Control & Merges: Successfully merged team feature branches (including Pull Request #3 for artwork modules) and synchronized git commit histories.
 
 ## Prerequisites
 - PHP >= 8.1
