@@ -1,3 +1,4 @@
+
 @extends('layouts.app')
 
 @section('title', 'Explore Artworks | LikhaSpace')
@@ -28,6 +29,7 @@
     .art-link { color: var(--purple); font-size: .8rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
     .art-link:hover { color: var(--purple-hover); }
     .empty-results { display: none; padding: 48px 16px; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); text-align: center; }
+
     @media (max-width: 575.98px) {
         .explore-toolbar { gap: 10px; }
         .art-search { max-width: none; }
@@ -46,55 +48,123 @@
 
 <section class="explore-toolbar" aria-label="Search and filter artworks">
     <div class="input-group art-search">
-        <span class="input-group-text border-end-0 rounded-start-pill ps-3"><i class="bi bi-search"></i></span>
-        <input id="artSearch" type="search" class="form-control border-start-0 rounded-end-pill" placeholder="Search artworks, artists, or styles" aria-label="Search artworks">
+        <span class="input-group-text border-end-0 rounded-start-pill ps-3">
+            <i class="bi bi-search"></i>
+        </span>
+        <input id="artSearch" type="search"
+            class="form-control border-start-0 rounded-end-pill"
+            placeholder="Search artworks, artists, or styles"
+            aria-label="Search artworks">
     </div>
+
     <div class="filter-pills" role="group" aria-label="Filter by location">
-        <button type="button" class="filter-pill {{ $selectedCountry === 'all' ? 'active' : '' }}" data-category="all">All</button>
+        <button type="button"
+            class="filter-pill {{ $selectedCountry === 'all' ? 'active' : '' }}"
+            data-category="all">All</button>
+
         @foreach (['Philippines', 'Greece', 'Scotland', 'Japan'] as $country)
-            <button type="button" class="filter-pill {{ $selectedCountry === $country ? 'active' : '' }}" data-category="{{ $country }}">{{ $country }}</button>
+            <button type="button"
+                class="filter-pill {{ $selectedCountry === $country ? 'active' : '' }}"
+                data-category="{{ $country }}">
+                {{ $country }}
+            </button>
         @endforeach
     </div>
-    <select class="form-select sort-select" aria-label="Sort artworks">
-        <option>Newest</option>
-        <option>Price: low to high</option>
-        <option>Price: high to low</option>
+
+    <select id="artSort" class="form-select sort-select" aria-label="Sort artworks">
+        <option value="newest">Newest</option>
+        <option value="low">Price: low to high</option>
+        <option value="high">Price: high to low</option>
     </select>
 </section>
 
 <div class="d-flex align-items-center justify-content-between mb-3">
     <h2 class="h6 fw-bold mb-0">Featured artworks</h2>
-    <span id="artCount" class="small text-muted">Showing {{ count($artworks) }} artworks</span>
+    <span id="artCount" class="small text-muted">
+        Showing {{ $artworks->count() }} artworks
+    </span>
 </div>
 
-<section id="artworks" class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-3 g-lg-4" aria-label="Featured artworks">
-    @foreach ($artworks as $index => $artwork)
-        <div class="col artwork-item" data-category="{{ $artwork['country'] }}" data-search="{{ strtolower($artwork['title'].' '.$artwork['artist'].' '.$artwork['country']) }}">
+<section id="artworks"
+    class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-3 g-lg-4"
+    aria-label="Featured artworks">
+
+    @forelse ($artworks as $artwork)
+        <div class="col artwork-item"
+            data-id="{{ $artwork->id }}"
+            data-category="{{ $artwork->country }}"
+            data-price="{{ $artwork->price }}"
+            data-search="{{ strtolower($artwork->title.' '.($artwork->artist?->name ?? 'Unknown Artist').' '.$artwork->country) }}">
+
             <article class="card art-card">
                 <div class="art-image">
-                    <img src="https://images.unsplash.com/{{ $artwork['image'] }}?q=80&w=700&auto=format&fit=crop" alt="{{ $artwork['title'] }}" loading="lazy">
-                    <span class="art-country">{{ $artwork['country'] }}</span>
+                    <img
+                        src="{{ asset('storage/' . $artwork->image_path) }}"
+                        alt="{{ $artwork->title }}"
+                        loading="lazy">
+
+                    <span class="art-country">{{ $artwork->country }}</span>
+
                     @if (auth()->user()?->role === 'client')
-                        <form method="POST" action="{{ route('favorites.toggle', $index) }}" class="favorite-form">
+                        <form method="POST"
+                            action="{{ route('artwork.favorite', $artwork->id) }}"
+                            class="favorite-form">
                             @csrf
-                            @php($isFavorite = in_array((string) $index, $favorites, true))
-                            <button class="favorite-button {{ $isFavorite ? 'is-favorite' : '' }}" type="submit" aria-label="{{ $isFavorite ? 'Remove' : 'Add' }} {{ $artwork['title'] }} {{ $isFavorite ? 'from' : 'to' }} favorites" aria-pressed="{{ $isFavorite ? 'true' : 'false' }}"><i class="bi bi-heart-fill"></i></button>
+
+                        @php
+                            $favoriteKey = 'db-' . $artwork->id;
+
+                            $isFavorite = in_array(
+                                 $favoriteKey,
+                                 $favorites ?? [],
+                                 true
+                                     );
+                        @endphp
+                            <button
+                                class="favorite-button {{ $isFavorite ? 'is-favorite' : '' }}"
+                                type="submit"
+                                aria-label="{{ $isFavorite ? 'Remove' : 'Add' }} {{ $artwork->title }} {{ $isFavorite ? 'from' : 'to' }} favorites">
+                                <i class="bi bi-heart-fill"></i>
+                            </button>
                         </form>
                     @endif
                 </div>
+
                 <div class="card-body">
-                    <h3 class="art-name">{{ $artwork['title'] }}</h3>
-                    <p class="art-artist">By {{ $artwork['artist'] }}</p>
-                    <div class="d-flex align-items-center justify-content-between border-top pt-3" style="border-color: var(--line) !important">
-                        <span class="art-price">₱{{ number_format($artwork['price'], 2) }}</span>
-                        <a href="{{ route('product.show', $index) }}" class="art-link">View details <i class="bi bi-arrow-right"></i></a>
+                    <h3 class="art-name">{{ $artwork->title }}</h3>
+
+                    <p class="art-artist">
+                        By {{ $artwork->artist?->name ?? 'Unknown Artist' }}
+                    </p>
+
+                    <div class="d-flex align-items-center justify-content-between border-top pt-3"
+                        style="border-color: var(--line) !important">
+
+                        <span class="art-price">
+                            ₱{{ number_format((float) $artwork->price, 2) }}
+                        </span>
+
+                        <a href="{{ route('artwork.show', $artwork->id) }}">
+                         View Details
+                        </a>
                     </div>
                 </div>
             </article>
         </div>
-    @endforeach
+    @empty
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-palette fs-1 text-muted"></i>
+            <h3 class="h5 mt-3">No approved artworks yet</h3>
+            <p class="text-muted mb-0">
+                Check back later for new artwork submissions.
+            </p>
+        </div>
+    @endforelse
 </section>
-<div class="empty-results mt-3" id="emptyResults">No artworks match your search. Try another artist, style, or location.</div>
+
+<div class="empty-results mt-3" id="emptyResults">
+    No artworks match your search. Try another artist, style, or location.
+</div>
 @endsection
 
 @push('scripts')
@@ -103,28 +173,66 @@
     const artworkItems = [...document.querySelectorAll('.artwork-item')];
     const categoryButtons = [...document.querySelectorAll('button[data-category]')];
     const emptyResults = document.getElementById('emptyResults');
+    const sortSelect = document.getElementById('artSort');
+
     let selectedCategory = @json($selectedCountry);
 
     function filterArtworks() {
         const query = searchField.value.trim().toLowerCase();
-        let visibleCount = 0;
-        artworkItems.forEach((item) => {
-            const matchesCategory = selectedCategory === 'all' || item.dataset.category === selectedCategory;
+        const sortValue = sortSelect.value;
+
+        let visibleItems = artworkItems.filter((item) => {
+            const matchesCategory =
+                selectedCategory === 'all' ||
+                item.dataset.category === selectedCategory;
+
             const matchesSearch = item.dataset.search.includes(query);
-            item.classList.toggle('d-none', !matchesCategory || !matchesSearch);
-            if (matchesCategory && matchesSearch) visibleCount++;
+
+            return matchesCategory && matchesSearch;
         });
-        document.getElementById('artCount').textContent = `Showing ${visibleCount} artwork${visibleCount === 1 ? '' : 's'}`;
-        emptyResults.style.display = visibleCount ? 'none' : 'block';
+
+        visibleItems.sort((a, b) => {
+            const priceA = Number(a.dataset.price);
+            const priceB = Number(b.dataset.price);
+
+            if (sortValue === 'low') return priceA - priceB;
+            if (sortValue === 'high') return priceB - priceA;
+
+            return Number(b.dataset.id) - Number(a.dataset.id);
+        });
+
+        const artworkContainer = document.getElementById('artworks');
+
+        visibleItems.forEach(item => artworkContainer.appendChild(item));
+
+        artworkItems.forEach(item => {
+            item.classList.toggle('d-none', !visibleItems.includes(item));
+        });
+
+        document.getElementById('artCount').textContent =
+            `Showing ${visibleItems.length} artwork${visibleItems.length === 1 ? '' : 's'}`;
+
+        emptyResults.style.display =
+            visibleItems.length === 0 && artworkItems.length > 0
+                ? 'block'
+                : 'none';
     }
 
-    categoryButtons.forEach((button) => button.classList.toggle('active', button.dataset.category === selectedCategory));
-    filterArtworks();
+    categoryButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            selectedCategory = button.dataset.category;
+
+            categoryButtons.forEach(filter => {
+                filter.classList.toggle('active', filter === button);
+            });
+
+            filterArtworks();
+        });
+    });
+
     searchField.addEventListener('input', filterArtworks);
-    categoryButtons.forEach((button) => button.addEventListener('click', () => {
-        selectedCategory = button.dataset.category;
-        categoryButtons.forEach((filter) => filter.classList.toggle('active', filter === button));
-        filterArtworks();
-    }));
+    sortSelect.addEventListener('change', filterArtworks);
+
+    filterArtworks();
 </script>
 @endpush
