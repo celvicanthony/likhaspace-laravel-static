@@ -2,7 +2,9 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\ArtworkController;
+use App\Http\Controllers\ProfileController;
 use App\Models\User;
 use App\Models\Artwork;
 use Illuminate\Http\Request;
@@ -19,9 +21,10 @@ use Illuminate\Support\Str;
 */
 
 Route::middleware('guest')->group(function () {
-    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::get('/login', [AuthenticatedSessionController::class, 'create'])
+        ->name('login');
 
-    Route::post('/login', [AuthController::class, 'login'])
+    Route::post('/login', [AuthenticatedSessionController::class, 'store'])
         ->middleware('throttle:6,1')
         ->name('login.submit');
 
@@ -70,6 +73,11 @@ Route::get('/explore', function () {
         'favorites' => Session::get('favorites', []),
     ]);
 })->name('explore');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/dashboard', fn () => redirect()->route('explore'))
+        ->name('dashboard');
+});
 
 
 
@@ -140,6 +148,11 @@ Route::match(['HEAD'], '/product/{id?}', function ($id = 1) {
 */
 
 Route::middleware('role:client')->group(function () {
+    Route::get('/client/profile/edit', [ProfileController::class, 'editClient'])
+        ->name('client.profile.edit');
+    Route::match(['POST', 'PUT'], '/client/profile', [ProfileController::class, 'updateClient'])
+        ->name('client.profile.update');
+
     Route::post('/artworks/{artwork}/favorite', function (int $artwork) {
     $submission = Artwork::where('status', 'approved')
         ->findOrFail($artwork);
@@ -239,14 +252,10 @@ Route::middleware('role:client')->group(function () {
     })->name('favorites.toggle');
 
 
-    Route::get('/profile', function () {
-        return view('profile', [
-            'user' => request()->user(),
-            'profile' => request()->user()->profile ?? [],
-        ]);
-    })->name('profile');
+    Route::get('/profile', [ProfileController::class, 'editClient'])
+        ->name('profile');
 
-    Route::post('/profile', [AuthController::class, 'updateClientProfile'])
+    Route::post('/profile', [ProfileController::class, 'updateClient'])
         ->name('profile.update');
 
 
@@ -424,30 +433,13 @@ Route::middleware('role:artist')
         | Artist Profile
         */
 
-        Route::get('/profile', function () {
-            $user = request()->user();
-            $artistId = $user->artist_id;
+        Route::get('/profile/edit', [ProfileController::class, 'editArtist'])
+            ->name('profile.edit');
 
-            $artist = array_replace(
-                [
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'country' => 'Philippines',
-                    'studio' => $user->name,
-                    'bio' => '',
-                ],
-                config("demo.artists.$artistId", []),
-                [
-                    'name' => $user->name,
-                    'email' => $user->email,
-                ],
-                $user->profile ?? []
-            );
+        Route::get('/profile', [ProfileController::class, 'editArtist'])
+            ->name('profile');
 
-            return view('artist.profile', compact('artist'));
-        })->name('profile');
-
-        Route::post('/profile', [AuthController::class, 'updateArtistProfile'])
+        Route::match(['POST', 'PUT'], '/profile', [ProfileController::class, 'updateArtist'])
             ->name('profile.update');
 
 });
@@ -579,88 +571,88 @@ Route::middleware('role:admin')
                 return back()->with('status', 'User account updated.');
             })->whereNumber('user')->name('users.action');
 
-        });
+            /*
+            | Artwork Approvals - Database
+            */
 
+            Route::get('/approvals', function () {
 
-        /*
-        | Artwork Approvals - Database
-        */
+                $artworks = Artwork::with('artist')
+                    ->latest()
+                    ->get()
+                    ->map(function (Artwork $artwork) {
 
-        Route::get('/approvals', function () {
+                        return [
+                            'id' => $artwork->id,
+                            'artist_id' => $artwork->user_id,
+                            'artist' => $artwork->artist?->name ?? 'Unknown Artist',
+                            'title' => $artwork->title,
+                            'country' => $artwork->country,
+                            'description' => $artwork->description,
+                            'price' => $artwork->price,
+                            'status' => $artwork->status,
+                            'submitted_at' => $artwork->created_at?->format('M d, Y'),
+                            'file_name' => basename($artwork->image_path),
+                        ];
 
-            $artworks = Artwork::with('artist')
-                ->latest()
-                ->get()
-                ->map(function (Artwork $artwork) {
+                    })
+                    ->values();
 
-                    return [
-                        'id' => $artwork->id,
-                        'artist_id' => $artwork->user_id,
-                        'artist' => $artwork->artist?->name ?? 'Unknown Artist',
-                        'title' => $artwork->title,
-                        'country' => $artwork->country,
-                        'description' => $artwork->description,
-                        'price' => $artwork->price,
-                        'status' => $artwork->status,
-                        'submitted_at' => $artwork->created_at?->format('M d, Y'),
-                        'file_name' => basename($artwork->image_path),
-                    ];
+                return view('admin.approvals', compact('artworks'));
 
-                })
-                ->values();
-
-            return view('admin.approvals', compact('artworks'));
-
-        })->name('approvals');
+            })->name('approvals');
 
 
         /*
         | Approve or Reject Artwork
         */
 
-        Route::post('/approvals/{artwork}/action', function (Request $request, int $artwork) {
+            Route::post('/approvals/{artwork}/action', function (Request $request, int $artwork) {
 
-            $validated = $request->validate([
-                'status' => ['required', 'in:approved,rejected'],
-            ]);
+                $validated = $request->validate([
+                    'status' => ['required', 'in:approved,rejected'],
+                ]);
 
-            $submission = Artwork::findOrFail($artwork);
+                $submission = Artwork::findOrFail($artwork);
 
-            $submission->update([
-                'status' => $validated['status'],
-                'reviewed_by' => Auth::id(),
-                'reviewed_at' => now(),
-            ]);
+                $submission->update([
+                    'status' => $validated['status'],
+                    'reviewed_by' => Auth::id(),
+                    'reviewed_at' => now(),
+                ]);
 
-            return back()->with(
-                'status',
-                'Artwork ' . $validated['status'] . '.'
-            );
+                return back()->with(
+                    'status',
+                    'Artwork ' . $validated['status'] . '.'
+                );
 
-        })->whereNumber('artwork')->name('approvals.action');
+            })->whereNumber('artwork')->name('approvals.action');
 
 
         /*
         | View / Download Submitted Artwork
         */
 
-        Route::get('/approvals/{artwork}/file', function (int $artwork) {
+            Route::get('/approvals/{artwork}/file', function (int $artwork) {
 
-            $submission = Artwork::findOrFail($artwork);
+                $submission = Artwork::findOrFail($artwork);
 
-            abort_unless(
-                $submission->image_path &&
-                Storage::disk('public')->exists($submission->image_path),
-                404
-            );
+                abort_unless(
+                    $submission->image_path &&
+                    Storage::disk('public')->exists($submission->image_path),
+                    404
+                );
 
-            $downloadName = basename($submission->image_path);
+                $downloadName = basename($submission->image_path);
 
-            return Storage::disk('public')->download(
-                $submission->image_path,
-                $downloadName
-            );
+                return Storage::disk('public')->download(
+                    $submission->image_path,
+                    $downloadName
+                );
 
-        })->whereNumber('artwork')->name('approvals.file');
+            })->whereNumber('artwork')->name('approvals.file');
 
+        });
 });
+
+require __DIR__.'/auth.php';

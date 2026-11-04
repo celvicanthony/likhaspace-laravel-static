@@ -74,7 +74,10 @@ class RoleAccessTest extends TestCase
         $this->post(route('login.submit'), [
             'email' => 'admin@likhaspace.ph',
             'password' => 'test-admin-password',
-        ])->assertSessionHasErrors('email');
+        ])->assertRedirect(route('admin.dashboard'));
+        $this->assertAuthenticatedAs(User::where('email', 'admin@likhaspace.ph')->first());
+
+        $this->post(route('logout'));
         $this->post(route('admin.login.submit'), [
             'email' => 'admin@likhaspace.ph',
             'password' => 'test-admin-password',
@@ -140,7 +143,7 @@ class RoleAccessTest extends TestCase
     public function test_client_profile_updates_credentials_and_persisted_details(): void
     {
         $client = $this->makeUser('client', null, 'client-profile@example.test', 'oldpassword');
-        $this->actingAs($client)->get(route('profile'))->assertOk()->assertViewIs('profile');
+        $this->actingAs($client)->get(route('profile'))->assertOk()->assertViewIs('client.profile.edit');
 
         $this->post(route('profile.update'), [
             'name' => 'Updated Collector',
@@ -155,7 +158,7 @@ class RoleAccessTest extends TestCase
             'current_password' => 'oldpassword',
             'new_password' => 'newpassword123',
             'new_password_confirmation' => 'newpassword123',
-        ])->assertRedirect(route('profile'))->assertSessionHas('status');
+        ])->assertRedirect(route('client.profile.edit'))->assertSessionHas('status');
 
         $client->refresh();
         $this->assertSame('Updated Collector', $client->name);
@@ -181,7 +184,7 @@ class RoleAccessTest extends TestCase
             'current_password' => 'artist-old-pass',
             'new_password' => 'artist-new-pass',
             'new_password_confirmation' => 'artist-new-pass',
-        ])->assertRedirect(route('artist.profile'))->assertSessionHas('status');
+        ])->assertRedirect(route('artist.profile.edit'))->assertSessionHas('status');
 
         $artist->refresh();
         $this->assertSame('Heather Studio', $artist->name);
@@ -217,12 +220,13 @@ class RoleAccessTest extends TestCase
         ])->assertSessionHasErrors('email');
 
         $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk();
-        $this->get(route('admin.approvals'))->assertOk();
+        $this->get(route('admin.approvals'))->assertRedirect(route('admin.vault.gate'));
         $this->get(route('admin.users'))->assertRedirect(route('admin.vault.gate'));
         $this->post(route('admin.vault.verify'), ['pin' => 'wrong-pin'])->assertSessionHasErrors('pin');
         $this->post(route('admin.vault.verify'), ['pin' => 'test-master-pin'])
             ->assertRedirect(route('admin.users'));
         $this->get(route('admin.users'))->assertOk()->assertSee($client->email);
+        $this->get(route('admin.approvals'))->assertOk();
 
         $this->post(route('admin.users.action', $client->id), ['action' => 'status'])
             ->assertSessionHas('status');

@@ -1,48 +1,67 @@
 @extends('layouts.app')
 
-@section('title', 'Create account | LikhaSpace')
+@section('title', 'Create an account | LikhaSpace')
 
 @section('content')
 <div class="mx-auto" style="max-width: 560px">
     <section class="bg-studio-card rounded-4 shadow-sm p-4 p-md-5">
-        <div class="home-kicker">Join the marketplace</div>
-        <h1 class="h3 fw-bold mt-2">Create your account</h1>
-        <p class="text-muted mb-4">Join as a collector or create an independent artist studio.</p>
-
-        @if ($errors->any())
-            <div class="alert bg-studio-card rounded-4" role="alert">{{ $errors->first() }}</div>
-        @endif
+        <div class="home-kicker">Join our community</div>
+        <h1 class="h3 fw-bold mt-2 mb-4">Create your LikhaSpace account</h1>
 
         <form method="POST" action="{{ route('register.submit') }}">
             @csrf
-            <div class="mb-3">
-                <label class="form-label" for="name">Name</label>
-                <input class="form-control" id="name" name="name" value="{{ old('name') }}" autocomplete="name" maxlength="120" required autofocus>
-            </div>
-            <div class="mb-3">
-                <label class="form-label" for="email">Email address</label>
-                <input class="form-control" id="email" name="email" type="email" value="{{ old('email') }}" autocomplete="email" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label" for="role">Account type</label>
-                <select class="form-select" id="role" name="role" required>
-                    <option value="client" @selected(old('role', 'client') === 'client')>Client / collector</option>
-                    <option value="artist" @selected(old('role') === 'artist')>Artist / creator</option>
-                </select>
-                <div class="form-text text-muted">Admin access cannot be requested through public registration.</div>
-            </div>
-            <div class="mb-3">
-                <label class="form-label" for="password">Password</label>
-                <input class="form-control" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
-            </div>
-            <div class="mb-4">
-                <label class="form-label" for="password_confirmation">Confirm password</label>
-                <input class="form-control" id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" required>
-            </div>
-            <button class="btn btn-likha rounded-pill w-100 py-2" type="submit">Create account</button>
-        </form>
 
-        <p class="text-muted text-center small mt-4 mb-0">Already registered? <a href="{{ route('login') }}">Sign in</a></p>
+            <div class="mb-3">
+                <label for="name" class="form-label">{{ __('Name') }}</label>
+                <input id="name" class="form-control @error('name') is-invalid @enderror"
+                    type="text" name="name" value="{{ old('name') }}" required autofocus
+                    autocomplete="name">
+                @error('name')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="mb-3">
+                <label for="email" class="form-label">{{ __('Email') }}</label>
+                <input id="email" class="form-control @error('email') is-invalid @enderror"
+                    type="email" name="email" value="{{ old('email') }}" required
+                    autocomplete="username">
+                @error('email')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="mb-3">
+                <label for="role" class="form-label">{{ __('Account type') }}</label>
+                <select id="role" name="role" class="form-select @error('role') is-invalid @enderror" required>
+                    <option value="client" @selected(old('role', 'client') === 'client')>Client</option>
+                    <option value="artist" @selected(old('role') === 'artist')>Artist</option>
+                </select>
+                @error('role')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">{{ __('Password') }}</label>
+                <input id="password" class="form-control @error('password') is-invalid @enderror"
+                    type="password" name="password" required autocomplete="new-password">
+                @error('password')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
+            </div>
+
+            <div class="mb-4">
+                <label for="password_confirmation" class="form-label">{{ __('Confirm Password') }}</label>
+                <input id="password_confirmation" class="form-control" type="password"
+                    name="password_confirmation" required autocomplete="new-password">
+            </div>
+
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <a href="{{ route('login') }}">{{ __('Already registered?') }}</a>
+                <button class="btn btn-likha rounded-pill px-4" type="submit">{{ __('Register') }}</button>
+            </div>
+        </form>
     </section>
 </div>
 @endsection

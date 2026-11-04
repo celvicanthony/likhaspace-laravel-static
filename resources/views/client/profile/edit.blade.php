@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'My Profile | LikhaSpace')
+@section('title', 'Client Profile | LikhaSpace')
 
 @push('styles')
 <style>
@@ -24,7 +24,7 @@
     @if (session('status'))<div class="alert bg-studio-card rounded-4" role="status">{{ session('status') }}</div>@endif
     @if ($errors->any())<div class="alert bg-studio-card rounded-4" role="alert">{{ $errors->first() }}</div>@endif
 
-    <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ route('client.profile.update') }}" enctype="multipart/form-data">
         @csrf
         <section class="bg-studio-card rounded-4 p-3 p-md-4 mb-3">
             <h2 class="h6 fw-bold mb-3">Personal details</h2>
@@ -43,20 +43,20 @@
                 </div>
             </div>
             <div class="row g-3">
-                <div class="col-12 col-md-6"><label class="form-label" for="name">Full name</label><input class="form-control" id="name" name="name" value="{{ old('name', $user->name) }}" autocomplete="name" required></div>
-                <div class="col-12 col-md-6"><label class="form-label" for="email">Email address</label><input class="form-control" id="email" name="email" type="email" value="{{ old('email', $user->email) }}" autocomplete="email" required></div>
-                <div class="col-12"><label class="form-label" for="bio">Bio</label><textarea class="form-control" id="bio" name="bio" rows="3" maxlength="400">{{ old('bio', $profile['bio'] ?? '') }}</textarea></div>
-                <div class="col-12 col-md-6"><label class="form-label" for="contact">Contact number</label><input class="form-control" id="contact" name="contact" type="tel" value="{{ old('contact', $profile['contact'] ?? '') }}" autocomplete="tel"></div>
+                <div class="col-12 col-md-6"><label class="form-label" for="name">Full name</label><input class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name', $user->name) }}" autocomplete="name" required>@error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-6"><label class="form-label" for="email">Email address</label><input class="form-control @error('email') is-invalid @enderror" id="email" name="email" type="email" value="{{ old('email', $user->email) }}" autocomplete="email" required>@error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12"><label class="form-label" for="bio">Bio</label><textarea class="form-control @error('bio') is-invalid @enderror" id="bio" name="bio" rows="3" maxlength="400">{{ old('bio', $profile['bio'] ?? '') }}</textarea>@error('bio')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-6"><label class="form-label" for="contact">Contact number</label><input class="form-control @error('contact') is-invalid @enderror" id="contact" name="contact" type="tel" value="{{ old('contact', $profile['contact'] ?? '') }}" autocomplete="tel">@error('contact')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
             </div>
         </section>
 
         <section class="bg-studio-card rounded-4 p-3 p-md-4 mb-3">
             <h2 class="h6 fw-bold mb-3">Shipping address</h2>
             <div class="row g-3">
-                <div class="col-12"><label class="form-label" for="address">Street address</label><input class="form-control" id="address" name="address" value="{{ old('address', $profile['address'] ?? '') }}" autocomplete="street-address"></div>
-                <div class="col-12 col-md-5"><label class="form-label" for="city">City</label><input class="form-control" id="city" name="city" value="{{ old('city', $profile['city'] ?? '') }}" autocomplete="address-level2"></div>
-                <div class="col-12 col-md-4"><label class="form-label" for="province">Province</label><input class="form-control" id="province" name="province" value="{{ old('province', $profile['province'] ?? '') }}" autocomplete="address-level1"></div>
-                <div class="col-12 col-md-3"><label class="form-label" for="postal">Postal code</label><input class="form-control" id="postal" name="postal" inputmode="numeric" value="{{ old('postal', $profile['postal'] ?? '') }}" autocomplete="postal-code"></div>
+                <div class="col-12"><label class="form-label" for="address">Street address</label><input class="form-control @error('address') is-invalid @enderror" id="address" name="address" value="{{ old('address', $profile['address'] ?? '') }}" autocomplete="street-address">@error('address')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-5"><label class="form-label" for="city">City</label><input class="form-control @error('city') is-invalid @enderror" id="city" name="city" value="{{ old('city', $profile['city'] ?? '') }}" autocomplete="address-level2">@error('city')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-4"><label class="form-label" for="province">Province</label><input class="form-control @error('province') is-invalid @enderror" id="province" name="province" value="{{ old('province', $profile['province'] ?? '') }}" autocomplete="address-level1">@error('province')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-3"><label class="form-label" for="postal">Postal code</label><input class="form-control @error('postal') is-invalid @enderror" id="postal" name="postal" inputmode="numeric" value="{{ old('postal', $profile['postal'] ?? '') }}" autocomplete="postal-code">@error('postal')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
             </div>
         </section>
 

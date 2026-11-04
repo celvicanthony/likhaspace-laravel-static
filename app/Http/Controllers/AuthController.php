@@ -6,7 +6,6 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -136,16 +135,6 @@ class AuthController extends Controller
         return redirect()->route('admin.users')->with('status', 'Vault clearance granted for 30 minutes.');
     }
 
-    public function updateClientProfile(Request $request): RedirectResponse
-    {
-        return $this->saveProfile($request, false);
-    }
-
-    public function updateArtistProfile(Request $request): RedirectResponse
-    {
-        return $this->saveProfile($request, true);
-    }
-
     public function logout(Request $request): RedirectResponse
     {
         Auth::logout();
@@ -153,72 +142,6 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('home');
-    }
-
-    private function saveProfile(Request $request, bool $artist): RedirectResponse
-    {
-        /** @var User $user */
-        $user = $request->user();
-        $profile = $user->profile ?? [];
-        $rules = [
-            'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'current_password' => ['required_with:new_password', 'current_password'],
-            'new_password' => ['nullable', 'string', 'min:8', 'confirmed'],
-            'notifications' => ['nullable', 'array'],
-            'notifications.*' => ['boolean'],
-            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-        ];
-
-        if ($artist) {
-            $rules += [
-                'country' => ['required', Rule::in(['Philippines', 'Greece', 'Scotland', 'Japan'])],
-                'studio' => ['required', 'string', 'max:120'],
-                'bio' => ['required', 'string', 'max:500'],
-            ];
-        } else {
-            $rules += [
-                'bio' => ['nullable', 'string', 'max:400'],
-                'contact' => ['nullable', 'string', 'max:40'],
-                'address' => ['nullable', 'string', 'max:255'],
-                'city' => ['nullable', 'string', 'max:120'],
-                'province' => ['nullable', 'string', 'max:120'],
-                'postal' => ['nullable', 'string', 'max:20'],
-            ];
-        }
-
-        $validated = $request->validate($rules);
-        $user->name = $validated['name'];
-        $user->email = $validated['email'];
-
-        if (! empty($validated['new_password'])) {
-            $user->password = $validated['new_password'];
-        }
-
-        if ($request->hasFile('avatar')) {
-            $oldAvatar = $profile['avatar'] ?? null;
-            $profile['avatar'] = $request->file('avatar')->store('avatars', 'public');
-            if (is_string($oldAvatar) && str_starts_with($oldAvatar, 'avatars/')) {
-                Storage::disk('public')->delete($oldAvatar);
-            }
-        }
-
-        $profileFields = $artist
-            ? ['country', 'studio', 'bio']
-            : ['bio', 'contact', 'address', 'city', 'province', 'postal'];
-        foreach ($profileFields as $field) {
-            $profile[$field] = $validated[$field] ?? '';
-        }
-        $profile['notifications'] = $validated['notifications'] ?? [];
-        $user->profile = $profile;
-        $user->save();
-
-        if ($user->artist_id) {
-            $request->session()->put('artist_id', $user->artist_id);
-        }
-
-        return redirect()->route($artist ? 'artist.profile' : 'profile')
-            ->with('status', 'Your profile has been saved.');
     }
 
     private function prepareAuthenticatedSession(Request $request): void
