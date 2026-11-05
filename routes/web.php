@@ -7,12 +7,15 @@ use App\Http\Controllers\ArtworkController;
 use App\Http\Controllers\ProfileController;
 use App\Models\User;
 use App\Models\Artwork;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /*
 |--------------------------------------------------------------------------
@@ -28,7 +31,8 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:6,1')
         ->name('login.submit');
 
-    Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+    Route::get('/register', [AuthController::class, 'showRegister'])
+        ->name('register');
 
     Route::post('/register', [AuthController::class, 'register'])
         ->middleware('throttle:6,1')
@@ -55,21 +59,61 @@ Route::post('/logout', [AuthController::class, 'logout'])
 
 Route::get('/', fn () => view('home'))->name('home');
 
-
 Route::get('/explore', function () {
-    $countries = ['Philippines', 'Greece', 'Scotland', 'Japan'];
-    $selectedCountry = request()->query('country');
+    $query = Artwork::with('artist')
+        ->where('status', 'approved');
 
-    $artworks = Artwork::with('artist')
-        ->where('status', 'approved')
-        ->latest()
-        ->get();
+    if (request()->filled('search')) {
+        $search = request('search');
+
+        $query->where(function ($q) use ($search) {
+            $q->where('title', 'like', "%{$search}%")
+                ->orWhere('description', 'like', "%{$search}%")
+                ->orWhere('country', 'like', "%{$search}%")
+                ->orWhereHas('artist', function ($artistQuery) use ($search) {
+                    $artistQuery->where('name', 'like', "%{$search}%");
+                });
+        });
+    }
+
+    $countries = ['Philippines', 'Greece', 'Scotland', 'Japan'];
+    $selectedCountry = request('country', 'all');
+
+    if (in_array($selectedCountry, $countries, true)) {
+        $query->where('country', $selectedCountry);
+    } else {
+        $selectedCountry = 'all';
+    }
+
+    $sort = request('sort', 'newest');
+
+    switch ($sort) {
+        case 'title':
+            $query->orderBy('title', 'asc');
+            break;
+
+        case 'price_low':
+            $query->orderBy('price', 'asc');
+            break;
+
+        case 'price_high':
+            $query->orderBy('price', 'desc');
+            break;
+
+        default:
+            $query->latest();
+            $sort = 'newest';
+            break;
+    }
+
+    $artworks = $query->paginate(9)->withQueryString();
 
     return view('explore', [
-        'selectedCountry' => in_array($selectedCountry, $countries, true)
-            ? $selectedCountry
-            : 'all',
         'artworks' => $artworks,
+        'countries' => $countries,
+        'selectedCountry' => $selectedCountry,
+        'search' => request('search', ''),
+        'sort' => $sort,
         'favorites' => Session::get('favorites', []),
     ]);
 })->name('explore');
@@ -80,6 +124,11 @@ Route::middleware('auth')->group(function () {
 });
 
 
+/*
+|--------------------------------------------------------------------------
+| Demo Product Details
+|--------------------------------------------------------------------------
+*/
 
 Route::get('/product/{id?}', function ($id = 1) {
     $artwork = config("demo.artworks.$id");
@@ -105,7 +154,13 @@ Route::get('/product/{id?}', function ($id = 1) {
     ]);
 })->name('product.show');
 
-// Database artwork details - approved artworks only
+
+/*
+|--------------------------------------------------------------------------
+| Database Artwork Details
+|--------------------------------------------------------------------------
+*/
+
 Route::get('/artwork/{artwork}', function (int $artwork) {
     $artwork = Artwork::with('artist')
         ->where('status', 'approved')
@@ -122,7 +177,6 @@ Route::get('/artwork/{artwork}', function (int $artwork) {
         ),
     ]);
 })->whereNumber('artwork')->name('artwork.show');
-
 
 Route::match(['HEAD'], '/product/{id?}', function ($id = 1) {
     $artwork = config("demo.artworks.$id");
@@ -148,56 +202,155 @@ Route::match(['HEAD'], '/product/{id?}', function ($id = 1) {
 */
 
 Route::middleware('role:client')->group(function () {
+
+    /*
+    | Client Profile Routes
+    */
+
     Route::get('/client/profile/edit', [ProfileController::class, 'editClient'])
         ->name('client.profile.edit');
+
     Route::match(['POST', 'PUT'], '/client/profile', [ProfileController::class, 'updateClient'])
         ->name('client.profile.update');
 
+
+    /*
+    | Database Artwork Favorites
+    */
+
     Route::post('/artworks/{artwork}/favorite', function (int $artwork) {
-    $submission = Artwork::where('status', 'approved')
-        ->findOrFail($artwork);
+        $submission = Artwork::where('status', 'approved')
+            ->findOrFail($artwork);
 
-    $favorites = Session::get('favorites', []);
-    $favoriteKey = 'db-' . $submission->id;
+        $favorites = Session::get('favorites', []);
+        $favoriteKey = 'db-' . $submission->id;
 
-    if (in_array($favoriteKey, $favorites, true)) {
-        $favorites = array_values(array_filter(
-            $favorites,
-            fn ($id) => $id !== $favoriteKey
-        ));
+        if (in_array($favoriteKey, $favorites, true)) {
+            $favorites = array_values(array_filter(
+                $favorites,
+                fn ($id) => $id !== $favoriteKey
+            ));
 
-        $message = 'Artwork removed from favorites.';
-    } else {
-        $favorites[] = $favoriteKey;
-        $message = 'Artwork added to favorites.';
-    }
+            $message = 'Artwork removed from favorites.';
+        } else {
+            $favorites[] = $favoriteKey;
+            $message = 'Artwork added to favorites.';
+        }
 
-    Session::put('favorites', $favorites);
+        Session::put('favorites', $favorites);
 
-    return back()->with('status', $message);
-})->whereNumber('artwork')->name('artwork.favorite');
+        return back()->with('status', $message);
+    })->whereNumber('artwork')->name('artwork.favorite');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Shopping Cart
+    |--------------------------------------------------------------------------
+    */
 
     Route::get('/cart', function () {
-        return view('cart', [
-            'items' => [
-                [
-                    'title' => 'Maria Makiling, Guardian of the Mountain',
-                    'artist' => 'Maria Makiling Studio',
-                    'country' => 'Philippines',
-                    'price' => 1250,
-                    'artwork_id' => 1,
-                ],
-                [
-                    'title' => 'The Foxfire Promise',
-                    'artist' => 'Kaito Renders',
-                    'country' => 'Japan',
-                    'price' => 1850,
-                    'artwork_id' => 4,
-                ],
-            ],
-        ]);
+        $cart = Session::get('cart', []);
+
+        $artworks = Artwork::with('artist')
+            ->where('status', 'approved')
+            ->whereIn('id', array_keys($cart))
+            ->get()
+            ->keyBy('id');
+
+        $items = [];
+        $validCart = [];
+
+        foreach ($cart as $artworkId => $quantity) {
+            $artwork = $artworks->get($artworkId);
+
+            if (! $artwork) {
+                continue;
+            }
+
+            $quantity = max(1, min(99, (int) $quantity));
+
+            $validCart[$artworkId] = $quantity;
+
+            $items[] = [
+                'artwork' => $artwork,
+                'quantity' => $quantity,
+                'price' => (float) $artwork->price,
+                'line_total' => (float) $artwork->price * $quantity,
+            ];
+        }
+
+        Session::put('cart', $validCart);
+
+        $subtotal = collect($items)->sum('line_total');
+
+        return view('cart', compact('items', 'subtotal'));
     })->name('cart');
 
+
+    Route::post('/cart/{artwork}', function (Request $request, int $artwork) {
+        $validated = $request->validate([
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:99'],
+        ]);
+
+        $submission = Artwork::where('status', 'approved')
+            ->findOrFail($artwork);
+
+        $cart = Session::get('cart', []);
+
+        $quantity = (int) ($validated['quantity'] ?? 1);
+        $currentQuantity = (int) ($cart[$submission->id] ?? 0);
+
+        $cart[$submission->id] = min(99, $currentQuantity + $quantity);
+
+        Session::put('cart', $cart);
+
+        return redirect()
+            ->route('cart')
+            ->with('status', 'Artwork added to your cart.');
+    })->whereNumber('artwork')->name('cart.add');
+
+
+    Route::patch('/cart/{artwork}', function (Request $request, int $artwork) {
+        $validated = $request->validate([
+            'quantity' => ['required', 'integer', 'min:1', 'max:99'],
+        ]);
+
+        $submission = Artwork::where('status', 'approved')
+            ->findOrFail($artwork);
+
+        $cart = Session::get('cart', []);
+
+        abort_unless(isset($cart[$submission->id]), 404);
+
+        $cart[$submission->id] = (int) $validated['quantity'];
+
+        Session::put('cart', $cart);
+
+        return redirect()
+            ->route('cart')
+            ->with('status', 'Cart quantity updated.');
+    })->whereNumber('artwork')->name('cart.update');
+
+
+    Route::delete('/cart/{artwork}', function (int $artwork) {
+        $cart = Session::get('cart', []);
+
+        unset($cart[$artwork]);
+
+        Session::put('cart', $cart);
+
+        return redirect()
+            ->route('cart')
+            ->with('status', 'Artwork removed from your cart.');
+    })->whereNumber('artwork')->name('cart.remove');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Favorites
+    |--------------------------------------------------------------------------
+    */
 
     Route::get('/favorites', function () {
         $favoriteIds = Session::get('favorites', []);
@@ -252,6 +405,12 @@ Route::middleware('role:client')->group(function () {
     })->name('favorites.toggle');
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | Client Profile
+    |--------------------------------------------------------------------------
+    */
+
     Route::get('/profile', [ProfileController::class, 'editClient'])
         ->name('profile');
 
@@ -259,20 +418,67 @@ Route::middleware('role:client')->group(function () {
         ->name('profile.update');
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | Checkout - Database Orders
+    |--------------------------------------------------------------------------
+    */
+
     Route::get('/checkout', function () {
+        $cart = Session::get('cart', []);
+
+        if (empty($cart)) {
+            return redirect()->route('cart')
+                ->withErrors(['cart' => 'Your cart is empty.']);
+        }
+
+        $artworks = Artwork::with('artist')
+            ->where('status', 'approved')
+            ->whereIn('id', array_keys($cart))
+            ->get()
+            ->keyBy('id');
+
+        $items = [];
+        $validCart = [];
+
+        foreach ($cart as $artworkId => $quantity) {
+            $artwork = $artworks->get($artworkId);
+
+            if (! $artwork) {
+                continue;
+            }
+
+            $quantity = max(1, min(99, (int) $quantity));
+
+            $validCart[$artworkId] = $quantity;
+
+            $price = (float) $artwork->price;
+
+            $items[] = [
+                'artwork' => $artwork,
+                'title' => $artwork->title,
+                'artist' => $artwork->artist?->name ?? 'Unknown Artist',
+                'quantity' => $quantity,
+                'price' => $price,
+                'subtotal' => round($price * $quantity, 2),
+            ];
+        }
+
+        Session::put('cart', $validCart);
+
+        if (empty($items)) {
+            return redirect()->route('cart')
+                ->withErrors([
+                    'cart' => 'No approved artworks are available in your cart.',
+                ]);
+        }
+
+        $total = round(collect($items)->sum('subtotal'), 2);
+
         return view('checkout', [
-            'items' => [
-                [
-                    'title' => 'Maria Makiling, Guardian of the Mountain',
-                    'quantity' => 1,
-                    'price' => 1250,
-                ],
-                [
-                    'title' => 'The Foxfire Promise',
-                    'quantity' => 1,
-                    'price' => 1850,
-                ],
-            ],
+            'items' => $items,
+            'total' => $total,
+            'buyer' => request()->user(),
         ]);
     })->name('checkout');
 
@@ -285,68 +491,125 @@ Route::middleware('role:client')->group(function () {
             'payment' => ['required', 'in:card,gcash'],
         ]);
 
-        $transactions = Session::get('transactions', []);
+        $cart = Session::get('cart', []);
 
-        $orderCode = 'LS-' . now()->format('Ymd') . '-' . Str::upper(Str::random(6));
+        if (empty($cart)) {
+            return redirect()->route('cart')
+                ->withErrors(['cart' => 'Your cart is empty.']);
+        }
 
-        $items = [
-            [
-                'title' => 'Maria Makiling, Guardian of the Mountain',
-                'artist' => 'Maria Makiling Studio',
-                'country' => 'Philippines',
-                'quantity' => 1,
-                'price' => 1250,
-                'artwork_id' => 1,
-            ],
-            [
-                'title' => 'The Foxfire Promise',
-                'artist' => 'Kaito Renders',
-                'country' => 'Japan',
-                'quantity' => 1,
-                'price' => 1850,
-                'artwork_id' => 4,
-            ],
-        ];
+        $order = DB::transaction(function () use ($cart, $validated) {
 
-        $transactions[$orderCode] = [
-            'order_code' => $orderCode,
-            'items' => $items,
-            'total' => array_sum(
-                array_map(
-                    fn ($item) => $item['quantity'] * $item['price'],
-                    $items
-                )
-            ),
-            'payment' => $validated['payment'] === 'gcash'
-                ? 'GCash (demo)'
-                : 'Card (demo)',
-            'status' => 'Order placed',
-            'placed_at' => now()->toIso8601String(),
-            'buyer' => $validated['name'],
-        ];
+            $artworks = Artwork::with('artist')
+                ->where('status', 'approved')
+                ->whereIn('id', array_keys($cart))
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
 
-        Session::put('transactions', $transactions);
+            if ($artworks->count() !== count($cart)) {
+                throw ValidationException::withMessages([
+                    'cart' => 'One or more artworks are no longer available. Please review your cart.',
+                ]);
+            }
+
+            $orderItems = [];
+            $total = 0;
+
+            foreach ($cart as $artworkId => $quantity) {
+                $artwork = $artworks->get($artworkId);
+                $quantity = filter_var($quantity, FILTER_VALIDATE_INT);
+
+                if (
+                    ! $artwork ||
+                    $quantity === false ||
+                    $quantity < 1 ||
+                    $quantity > 99
+                ) {
+                    throw ValidationException::withMessages([
+                        'cart' => 'An artwork or quantity in your cart is invalid. Please review your cart.',
+                    ]);
+                }
+
+                $unitPrice = (float) $artwork->price;
+                $lineTotal = round($unitPrice * $quantity, 2);
+
+                $total += $lineTotal;
+
+                $orderItems[] = [
+                    'artwork' => $artwork,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'subtotal' => $lineTotal,
+                ];
+            }
+
+            $total = round($total, 2);
+
+            $orderCode = 'LS-' . now()->format('Ymd') . '-' . Str::upper(Str::random(8));
+
+            $order = Order::create([
+                'order_code' => $orderCode,
+                'user_id' => request()->user()->id,
+                'buyer_name' => $validated['name'],
+                'buyer_email' => $validated['email'],
+                'shipping_address' => $validated['address'],
+                'payment_method' => $validated['payment'] === 'gcash'
+                    ? 'GCash (demo)'
+                    : 'Credit/debit card (demo)',
+                'payment_status' => 'unpaid',
+                'status' => 'Order placed',
+                'total_amount' => $total,
+            ]);
+
+            foreach ($orderItems as $item) {
+                $artwork = $item['artwork'];
+
+                $order->items()->create([
+                    'artwork_id' => $artwork->id,
+                    'artwork_title' => $artwork->title,
+                    'artist_name' => $artwork->artist?->name ?? 'Unknown Artist',
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'subtotal' => $item['subtotal'],
+                ]);
+            }
+
+            return $order;
+        });
+
+        Session::forget('cart');
 
         return redirect()
-            ->route('transactions.show', $orderCode)
-            ->with('status', 'Your demo order has been placed. No payment was collected.');
+            ->route('transactions.show', $order->order_code)
+            ->with('status', 'Your order has been saved successfully. No payment was collected.');
     })->name('checkout.submit');
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | Customer Transaction History
+    |--------------------------------------------------------------------------
+    */
+
     Route::get('/transactions', function () {
-        return view('transactions.index', [
-            'transactions' => Session::get('transactions', []),
-        ]);
+        $orders = Order::with('items')
+            ->where('user_id', request()->user()->id)
+            ->latest()
+            ->paginate(10);
+
+        return view('transactions.index', compact('orders'));
     })->name('transactions');
 
 
     Route::get('/transactions/{order}', function (string $order) {
-        $transaction = Session::get("transactions.$order");
-
-        abort_unless(is_array($transaction), 404);
+        $order = Order::with('items')
+            ->where('user_id', request()->user()->id)
+            ->where('order_code', $order)
+            ->firstOrFail();
 
         return view('transactions.show', [
-            'transaction' => $transaction,
+            'order' => $order,
         ]);
     })->where('order', 'LS-[A-Z0-9-]+')->name('transactions.show');
 
@@ -363,10 +626,6 @@ Route::middleware('role:artist')
     ->prefix('artist')
     ->name('artist.')
     ->group(function () {
-
-        /*
-        | Artist Dashboard
-        */
 
         Route::get('/dashboard', function () {
             $artistId = request()->user()->artist_id;
@@ -393,7 +652,6 @@ Route::middleware('role:artist')
                 ->where('artist_id', $artistId)
                 ->values();
 
-            // Get the artist's actual database submissions.
             $submissions = Artwork::where('user_id', request()->user()->id)
                 ->latest()
                 ->get();
@@ -463,7 +721,7 @@ Route::middleware('role:admin')
         Route::get('/dashboard', function () {
             $pendingCatalogCount = collect(config('demo.artworks'))
                 ->filter(fn (array $artwork, int|string $id) =>
-                    (Session::get("artwork_reviews.$id", $artwork['status'])) === 'pending'
+                    Session::get("artwork_reviews.$id", $artwork['status']) === 'pending'
                 )
                 ->count();
 
@@ -487,10 +745,28 @@ Route::middleware('role:admin')
                 'artistCount' => User::where('role', 'artist')->count(),
                 'artworkCount' => count(config('demo.artworks')) + Artwork::count(),
                 'pendingCount' => $pendingCatalogCount + $pendingSubmissionCount,
-                'platformRevenue' => collect(config('demo.artists'))->sum('revenue'),
-                'transactions' => Session::get('transactions', []),
+                'platformRevenue' => Order::where('payment_status', 'paid')
+                    ->sum('total_amount'),
+                'transactions' => Order::with(['items', 'customer'])
+                    ->latest()
+                    ->take(5)
+                    ->get(),
+                'orderCount' => Order::count(),
             ]);
         })->name('dashboard');
+
+
+        /*
+        | Admin Transaction Management
+        */
+
+        Route::get('/transactions', function () {
+            $orders = Order::with(['items', 'customer'])
+                ->latest()
+                ->paginate(15);
+
+            return view('admin.transactions', compact('orders'));
+        })->name('transactions');
 
 
         /*
@@ -506,7 +782,7 @@ Route::middleware('role:admin')
 
 
         /*
-        | User Management
+        | User Management and Artwork Approvals
         */
 
         Route::middleware('admin.clearance')->group(function () {
@@ -571,17 +847,16 @@ Route::middleware('role:admin')
                 return back()->with('status', 'User account updated.');
             })->whereNumber('user')->name('users.action');
 
+
             /*
             | Artwork Approvals - Database
             */
 
             Route::get('/approvals', function () {
-
                 $artworks = Artwork::with('artist')
                     ->latest()
                     ->get()
                     ->map(function (Artwork $artwork) {
-
                         return [
                             'id' => $artwork->id,
                             'artist_id' => $artwork->user_id,
@@ -594,21 +869,18 @@ Route::middleware('role:admin')
                             'submitted_at' => $artwork->created_at?->format('M d, Y'),
                             'file_name' => basename($artwork->image_path),
                         ];
-
                     })
                     ->values();
 
                 return view('admin.approvals', compact('artworks'));
-
             })->name('approvals');
 
 
-        /*
-        | Approve or Reject Artwork
-        */
+            /*
+            | Approve or Reject Artwork
+            */
 
             Route::post('/approvals/{artwork}/action', function (Request $request, int $artwork) {
-
                 $validated = $request->validate([
                     'status' => ['required', 'in:approved,rejected'],
                 ]);
@@ -625,16 +897,14 @@ Route::middleware('role:admin')
                     'status',
                     'Artwork ' . $validated['status'] . '.'
                 );
-
             })->whereNumber('artwork')->name('approvals.action');
 
 
-        /*
-        | View / Download Submitted Artwork
-        */
+            /*
+            | View / Download Submitted Artwork
+            */
 
             Route::get('/approvals/{artwork}/file', function (int $artwork) {
-
                 $submission = Artwork::findOrFail($artwork);
 
                 abort_unless(
@@ -649,10 +919,10 @@ Route::middleware('role:admin')
                     $submission->image_path,
                     $downloadName
                 );
-
             })->whereNumber('artwork')->name('approvals.file');
 
         });
 });
+
 
 require __DIR__.'/auth.php';

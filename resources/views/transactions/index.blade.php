@@ -1,3 +1,4 @@
+
 @extends('layouts.app')
 
 @section('title', 'My Orders | LikhaSpace')
@@ -15,7 +16,13 @@
     .order-total { color: var(--ink); font-size: .9rem; font-weight: 700; }
     .order-view { color: var(--studio-link); font-size: .8rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
     .order-view:hover { color: var(--studio-primary); }
-    @media (max-width: 575.98px) { .order-card { align-items: flex-start; gap: 11px; padding: 14px; } .order-icon { width: 42px; height: 42px; flex-basis: 42px; } .order-side { align-items: flex-end; } .order-total { font-size: .82rem; } .order-status { max-width: 120px; white-space: normal; text-align: center; } }
+    @media (max-width: 575.98px) {
+        .order-card { align-items: flex-start; gap: 11px; padding: 14px; }
+        .order-icon { width: 42px; height: 42px; flex-basis: 42px; }
+        .order-side { align-items: flex-end; }
+        .order-total { font-size: .82rem; }
+        .order-status { max-width: 120px; white-space: normal; text-align: center; }
+    }
 </style>
 @endpush
 
@@ -24,36 +31,74 @@
     <header class="mb-4">
         <div class="home-kicker">Your purchases</div>
         <h1 class="h2 fw-bold mb-1">My orders</h1>
-        <p class="text-muted mb-0">View your order history and follow each artwork through its fulfillment steps.</p>
+        <p class="text-muted mb-0">
+            View your order history and follow each artwork through its fulfillment steps.
+        </p>
     </header>
 
     <div class="alert bg-studio-card rounded-4 small mb-4" role="note">
-        <i class="bi bi-info-circle me-2 text-primary"></i>These are prototype transactions. Checkout does not charge a payment method.
+        <i class="bi bi-info-circle me-2 text-primary"></i>
+        Orders are saved in the database. Card and GCash payments are not processed in this prototype.
     </div>
 
     <section class="d-grid gap-3" aria-label="Order history">
-        @forelse ($transactions as $transaction)
-            @php($firstItem = $transaction['items'][0])
+        @forelse ($orders as $order)
+            @php($firstItem = $order->items->first())
+
             <article class="order-card">
-                <span class="order-icon" aria-hidden="true"><i class="bi bi-bag-check"></i></span>
+                <span class="order-icon" aria-hidden="true">
+                    <i class="bi bi-bag-check"></i>
+                </span>
+
                 <div class="order-info">
-                    <h2 class="order-code">Order {{ $transaction['order_code'] }}</h2>
-                    <p class="order-subtitle">{{ count($transaction['items']) }} artwork{{ count($transaction['items']) === 1 ? '' : 's' }} · {{ $firstItem['title'] }} · {{ \Illuminate\Support\Carbon::parse($transaction['placed_at'])->format('M j, Y') }}</p>
+                    <h2 class="order-code">Order {{ $order->order_code }}</h2>
+
+                    <p class="order-subtitle">
+                        {{ $order->items->count() }}
+                        artwork{{ $order->items->count() === 1 ? '' : 's' }}
+
+                        @if ($firstItem)
+                            · {{ $firstItem->artwork_title }}
+                        @endif
+
+                        · {{ $order->created_at->format('M j, Y') }}
+                    </p>
                 </div>
+
                 <div class="order-side">
-                    <span class="order-status"><i class="bi bi-record-circle"></i>{{ $transaction['status'] }}</span>
-                    <span class="order-total">₱{{ number_format($transaction['total'], 2) }}</span>
-                    <a class="order-view" href="{{ route('transactions.show', $transaction['order_code']) }}">Track order <i class="bi bi-arrow-right"></i></a>
+                    <span class="order-status">
+                        <i class="bi bi-record-circle"></i>
+                        {{ $order->status }}
+                    </span>
+
+                    <span class="order-total">
+                        ₱{{ number_format($order->total_amount, 2) }}
+                    </span>
+
+                    <a
+                        class="order-view"
+                        href="{{ route('transactions.show', $order->order_code) }}"
+                    >
+                        Track order <i class="bi bi-arrow-right"></i>
+                    </a>
                 </div>
             </article>
         @empty
             <div class="bg-studio-card rounded-4 p-4 p-md-5 text-center">
                 <i class="bi bi-receipt-cutoff display-5 text-primary"></i>
                 <h2 class="h5 fw-bold mt-3">No orders yet</h2>
-                <p class="text-muted">When you place a demo order, its status and transaction details will appear here.</p>
-                <a href="{{ route('explore') }}" class="btn btn-likha rounded-4">Explore artwork</a>
+                <p class="text-muted">
+                    Your completed checkouts will appear here.
+                </p>
+                <a href="{{ route('explore') }}" class="btn btn-likha rounded-4">
+                    Explore artwork
+                </a>
             </div>
         @endforelse
     </section>
+
+    <div class="mt-4">
+        {{ $orders->links() }}
+    </div>
 </div>
 @endsection
