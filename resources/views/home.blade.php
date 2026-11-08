@@ -34,12 +34,6 @@
 
 @section('content')
 @php
-    $creators = [
-        ['name' => 'Janessa Mae Ramos', 'role' => 'Digital artist'],
-        ['name' => 'Celvic Anthony Borromeo', 'role' => 'Digital artist'],
-        ['name' => 'Lauren Jane Isleta', 'role' => 'Digital artist'],
-        ['name' => 'Vinz Jerby Acaylar', 'role' => 'Digital artist'],
-    ];
     $collections = [
         ['country' => 'Philippines', 'description' => 'Meet diwata, brave heroes, and the legendary guardians of Filipino folklore.', 'icons' => ['bi-feather', 'bi-flower1']],
         ['country' => 'Greece', 'description' => 'Discover Olympian gods, ancient monsters, and timeless Greek legends.', 'icons' => ['bi-columns-gap', 'bi-stars']],
@@ -54,19 +48,21 @@
         <p class="home-intro">Discover original digital artworks inspired by the myths, creatures, and legendary stories of cultures around the world.</p>
         <div class="d-flex flex-wrap align-items-center gap-3 mt-4">
             <a href="{{ route('explore') }}" class="btn btn-likha btn-lg rounded-4 px-4 py-3">Discover art <i class="bi bi-arrow-right-circle-fill ms-2"></i></a>
-            <div class="d-flex align-items-center gap-2 small text-muted"><span class="d-flex"><i class="bi bi-person-circle fs-4 text-primary"></i><i class="bi bi-person-circle fs-4 text-secondary ms-n1"></i><i class="bi bi-person-circle fs-4 text-primary ms-n1"></i></span><span><strong class="d-block text-body">4 digital artists</strong>Sharing their imagination</span></div>
+            <div class="d-flex align-items-center gap-2 small text-muted"><span class="d-flex"><i class="bi bi-person-circle fs-4 text-primary"></i><i class="bi bi-person-circle fs-4 text-secondary ms-n1"></i><i class="bi bi-person-circle fs-4 text-primary ms-n1"></i></span><span><strong class="d-block text-body">{{ $creators->count() }} digital artists</strong>Sharing their imagination</span></div>
         </div>
     </div>
     <aside class="creator-panel" aria-labelledby="creator-heading">
         <div class="home-kicker">Meet the creators</div>
         <h2 class="mb-2" id="creator-heading">Popular artists</h2>
-        @foreach ($creators as $creator)
-            <a class="creator-row" href="{{ route('explore') }}#artworks">
+        @forelse ($creators as $creator)
+            <a class="creator-row" href="{{ route('artists.show', $creator->id) }}">
                 <span class="creator-avatar"><i class="bi bi-person-fill fs-5"></i></span>
-                <span><strong class="d-block small">{{ $creator['name'] }}</strong><small class="text-muted">{{ $creator['role'] }}</small></span>
+                <span><strong class="d-block small">{{ $creator->display_name }}</strong><small class="text-muted">Digital artist</small></span>
                 <i class="bi bi-arrow-up-right creator-arrow"></i>
             </a>
-        @endforeach
+        @empty
+            <p class="text-muted small border-top pt-3 mb-0">Artist profiles will appear here as creators join LikhaSpace.</p>
+        @endforelse
     </aside>
 </section>
 

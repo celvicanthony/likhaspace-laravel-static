@@ -8,7 +8,7 @@
     <div class="mb-4">
         <div class="home-kicker">Almost yours</div>
         <h1 class="h2 fw-bold mb-1">Secure checkout</h1>
-        <p class="text-muted mb-0">Review your order and complete your details.</p>
+        <p class="text-muted mb-0">Review your order and contact details. Payments go directly to each artist.</p>
     </div>
 
     @if (session('status'))
@@ -33,16 +33,16 @@
         <div class="row g-4">
             <div class="col-12 col-lg-7">
                 <section class="bg-studio-card rounded-4 shadow-sm p-3 p-md-4 mb-4">
-                    <h2 class="h5 fw-bold mb-3">Delivery details</h2>
+                    <h2 class="h5 fw-bold mb-3">Contact details</h2>
 
                     <div class="row g-3">
                         <div class="col-12 col-md-6">
-                            <label class="form-label" for="checkout-name">Full name</label>
+                            <label class="form-label" for="checkout-name">Name for your order</label>
                             <input
                                 id="checkout-name"
                                 class="form-control rounded-3 @error('name') is-invalid @enderror"
                                 name="name"
-                                value="{{ old('name', $buyer->name ?? '') }}"
+                                value="{{ old('name', $buyer->display_name ?? '') }}"
                                 autocomplete="name"
                                 required
                             >
@@ -67,59 +67,22 @@
                             @enderror
                         </div>
 
-                        <div class="col-12">
-                            <label class="form-label" for="checkout-address">Shipping address</label>
-                            <textarea
-                                id="checkout-address"
-                                class="form-control rounded-3 @error('address') is-invalid @enderror"
-                                name="address"
-                                rows="3"
-                                autocomplete="street-address"
-                                required
-                            >{{ old('address') }}</textarea>
-                            @error('address')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
                     </div>
                 </section>
 
                 <section class="bg-studio-card rounded-4 shadow-sm p-3 p-md-4">
-                    <h2 class="h5 fw-bold mb-3">Payment method</h2>
-
-                    <div class="form-check border rounded-3 p-3 ps-5 mb-2">
-                        <input
-                            class="form-check-input"
-                            type="radio"
-                            name="payment"
-                            id="payment-card"
-                            value="card"
-                            {{ old('payment', 'card') === 'card' ? 'checked' : '' }}
-                        >
-                        <label class="form-check-label w-100" for="payment-card">
-                            <i class="bi bi-credit-card me-2"></i>
-                            Credit or debit card
-                        </label>
-                    </div>
-
-                    <div class="form-check border rounded-3 p-3 ps-5">
-                        <input
-                            class="form-check-input"
-                            type="radio"
-                            name="payment"
-                            id="payment-gcash"
-                            value="gcash"
-                            {{ old('payment') === 'gcash' ? 'checked' : '' }}
-                        >
-                        <label class="form-check-label w-100" for="payment-gcash">
-                            <i class="bi bi-phone me-2"></i>
-                            GCash
-                        </label>
-                    </div>
-
-                    @error('payment')
-                        <div class="text-danger small mt-2">{{ $message }}</div>
-                    @enderror
+                    <h2 class="h5 fw-bold mb-2">Pay each artist directly</h2>
+                    <p class="text-muted small mb-3">Your cart is split into separate orders by artist. Each artist's private GCash or InstaPay details and QR code will appear only on that artist's order page.</p>
+                    @foreach ($artists as $artist)
+                        <div class="d-flex align-items-center justify-content-between gap-2 border-top py-2">
+                            <span class="small">{{ $artist['name'] }}</span>
+                            @if ($artist['ready'])
+                                <span class="badge text-bg-success">Payment ready</span>
+                            @else
+                                <span class="badge text-bg-warning">Payment setup unavailable</span>
+                            @endif
+                        </div>
+                    @endforeach
                 </section>
             </div>
 
@@ -149,13 +112,14 @@
                         <span>₱{{ number_format($total, 2) }}</span>
                     </div>
 
-                    <p class="text-muted small">
-                        Prototype payment only. No actual card or GCash payment will be processed.
-                    </p>
+                    <p class="text-muted small">Payment is verified manually by each artist. Do not send a PIN or password, and submit only a payment receipt/screenshot as proof.</p>
 
-                    <button class="btn btn-likha rounded-4 w-100 py-3" type="submit">
+                    @unless ($paymentReady)
+                        <div class="alert alert-warning small" role="alert">An artist needs to finish their payment setup before this cart can be placed.</div>
+                    @endunless
+                    <button class="btn btn-likha rounded-4 w-100 py-3" type="submit" @disabled(! $paymentReady)>
                         <i class="bi bi-lock me-2"></i>
-                        Place order
+                        Create artist orders
                     </button>
 
                     <a href="{{ route('cart') }}" class="d-block text-center small mt-3">

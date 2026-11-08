@@ -329,7 +329,12 @@
                     </h3>
 
                     <p class="art-artist">
-                        By {{ $artwork->artist?->name ?? 'Unknown Artist' }}
+                        By
+                        @if ($artwork->artist)
+                            <a href="{{ route('artists.show', $artwork->artist->id) }}">{{ $artwork->artist->display_name }}</a>
+                        @else
+                            Unknown Artist
+                        @endif
                     </p>
 
                     <div
@@ -346,6 +351,17 @@
                             View Details
                         </a>
 
+                    </div>
+                    <div class="d-flex flex-wrap gap-3 small mt-2">
+                        @if ($artwork->reviews_count > 0)
+                            <span class="text-warning" aria-label="Rated {{ number_format((float) $artwork->reviews_avg_rating, 1) }} out of 5">
+                                <i class="bi bi-star-fill"></i>
+                                <span class="text-muted">{{ number_format((float) $artwork->reviews_avg_rating, 1) }}/5 ({{ $artwork->reviews_count }})</span>
+                            </span>
+                        @else
+                            <span class="text-muted">No reviews yet</span>
+                        @endif
+                        <span class="text-muted">{{ $artwork->paid_sales_count ?? 0 }} sold</span>
                     </div>
 
                 </div>

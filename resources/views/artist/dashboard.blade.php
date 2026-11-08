@@ -27,8 +27,24 @@
     <section class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-3 mb-4" aria-label="Studio performance">
         <div class="col"><article class="artist-metric h-100"><span>Artwork listings</span><strong>{{ $artworks->count() + $submissions->count() }}</strong></article></div>
         <div class="col"><article class="artist-metric h-100"><span>Sales</span><strong>{{ $artist['sales'] }}</strong></article></div>
-        <div class="col"><article class="artist-metric h-100"><span>Artist revenue</span><strong>₱{{ number_format($artist['revenue'], 2) }}</strong></article></div>
+        <div class="col"><article class="artist-metric h-100"><span>Artist earnings (90%)</span><strong>₱{{ number_format($artist['revenue'], 2) }}</strong><small class="artist-subtitle">Paid orders, after platform share</small></article></div>
         <div class="col"><article class="artist-metric h-100"><span>In review</span><strong>{{ $artworks->where('status', 'pending')->count() + $submissions->where('status', 'pending')->count() }}</strong></article></div>
+    </section>
+    <p class="text-muted small">Platform share (10%) tracked from your paid orders: ₱{{ number_format($artist['commission'], 2) }}. Payout settlement is handled separately.</p>
+
+    <section class="artist-panel mb-4">
+        <div class="artist-panel-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div><h2 class="h6 fw-bold mb-1">Recent orders</h2><p class="artist-subtitle mb-0">Review payments and deliver digital files from your orders workspace.</p></div>
+            <a href="{{ route('artist.orders') }}" class="small text-decoration-none">Manage all orders <i class="bi bi-arrow-right"></i></a>
+        </div>
+        @forelse ($artistOrders as $order)
+            <div class="border-top px-3 px-md-4 py-3 d-flex flex-wrap justify-content-between gap-2">
+                <div><strong>{{ $order->order_code }}</strong><div class="artist-subtitle">{{ $order->buyer_name }} · {{ $order->items->count() }} artwork(s)</div></div>
+                <div class="text-end"><span class="artist-status">{{ $order->status }}</span><div class="artist-subtitle mt-1">₱{{ number_format($order->total_amount, 2) }}</div></div>
+            </div>
+        @empty
+            <div class="border-top px-3 px-md-4 py-3 artist-subtitle">No orders yet.</div>
+        @endforelse
     </section>
 
     <section class="artist-panel">

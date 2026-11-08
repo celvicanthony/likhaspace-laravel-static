@@ -13,8 +13,6 @@ return [
             'country' => 'Philippines',
             'bio' => 'Digital artist exploring Filipino folklore and contemporary stories.',
             'studio' => 'Makiling Art House',
-            'sales' => 28,
-            'revenue' => 37250,
         ],
         'athena-art' => [
             'name' => 'Athena Art',
@@ -22,8 +20,6 @@ return [
             'country' => 'Greece',
             'bio' => 'Myth-inspired digital illustration with a contemporary point of view.',
             'studio' => 'Athena Studio',
-            'sales' => 36,
-            'revenue' => 65400,
         ],
         'heather-mcrae' => [
             'name' => 'Heather McRae',
@@ -31,8 +27,6 @@ return [
             'country' => 'Scotland',
             'bio' => 'Illustrator inspired by the quiet magic of Scottish folklore.',
             'studio' => 'Loch & Light Studio',
-            'sales' => 19,
-            'revenue' => 28750,
         ],
         'kaito-renders' => [
             'name' => 'Kaito Renders',
@@ -40,8 +34,6 @@ return [
             'country' => 'Japan',
             'bio' => 'Digital creator bringing Japanese folklore into vivid new worlds.',
             'studio' => 'Kaito Digital Studio',
-            'sales' => 42,
-            'revenue' => 81600,
         ],
     ],
     'artworks' => [

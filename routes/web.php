@@ -57,10 +57,54 @@ Route::post('/logout', [AuthController::class, 'logout'])
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', fn () => view('home'))->name('home');
+Route::get('/', function () {
+    $creators = User::where('role', 'artist')
+        ->where('status', 'active')
+        ->orderBy('name')
+        ->take(4)
+        ->get();
+
+    return view('home', compact('creators'));
+})->name('home');
+
+Route::get('/artists/{artist}', function (int $artist) {
+    $artist = User::where('role', 'artist')
+        ->where('status', 'active')
+        ->findOrFail($artist);
+
+    $profile = array_replace(
+        config("demo.artists.{$artist->artist_id}", []),
+        $artist->profile ?? [],
+        ['name' => $artist->display_name]
+    );
+
+    $artworks = Artwork::where('user_id', $artist->id)
+        ->where('status', 'approved')
+        ->withAvg('reviews', 'rating')
+        ->withCount('reviews')
+        ->latest()
+        ->paginate(12, ['*'], 'artworks_page')
+        ->withQueryString();
+
+    $demoArtworks = collect(config('demo.artworks'))
+        ->filter(fn (array $artwork) => $artwork['artist_id'] === $artist->artist_id && $artwork['status'] === 'approved')
+        ->map(fn (array $artwork, int|string $id) => ['id' => $id] + $artwork);
+    $artistRating = \App\Models\ArtworkReview::whereHas('artwork', fn ($query) => $query->where('user_id', $artist->id))->avg('rating');
+    $artistReviewCount = \App\Models\ArtworkReview::whereHas('artwork', fn ($query) => $query->where('user_id', $artist->id))->count();
+
+    return view('artists.show', compact('artist', 'profile', 'artworks', 'demoArtworks', 'artistRating', 'artistReviewCount'));
+})->whereNumber('artist')->name('artists.show');
 
 Route::get('/explore', function () {
     $query = Artwork::with('artist')
+        ->withAvg('reviews', 'rating')
+        ->withCount('reviews')
+        ->withSum([
+            'orderItems as paid_sales_count' => fn ($items) => $items->whereHas(
+                'order',
+                fn ($orders) => $orders->where('payment_status', 'paid')
+            ),
+        ], 'quantity')
         ->where('status', 'approved');
 
     if (request()->filled('search')) {
@@ -163,6 +207,14 @@ Route::get('/product/{id?}', function ($id = 1) {
 
 Route::get('/artwork/{artwork}', function (int $artwork) {
     $artwork = Artwork::with('artist')
+        ->withAvg('reviews', 'rating')
+        ->withCount('reviews')
+        ->withSum([
+            'orderItems as paid_sales_count' => fn ($items) => $items->whereHas(
+                'order',
+                fn ($orders) => $orders->where('payment_status', 'paid')
+            ),
+        ], 'quantity')
         ->where('status', 'approved')
         ->findOrFail($artwork);
 
@@ -439,6 +491,7 @@ Route::middleware('role:client')->group(function () {
             ->keyBy('id');
 
         $items = [];
+        $artists = collect();
         $validCart = [];
 
         foreach ($cart as $artworkId => $quantity) {
@@ -462,6 +515,15 @@ Route::middleware('role:client')->group(function () {
                 'price' => $price,
                 'subtotal' => round($price * $quantity, 2),
             ];
+
+            if ($artwork->artist) {
+                $artists->put($artwork->artist->id, [
+                    'name' => $artwork->artist->display_name,
+                    'ready' => filled($artwork->artist->payment_method)
+                        && filled($artwork->artist->payment_account_name)
+                        && filled($artwork->artist->payment_account_identifier),
+                ]);
+            }
         }
 
         Session::put('cart', $validCart);
@@ -479,6 +541,8 @@ Route::middleware('role:client')->group(function () {
             'items' => $items,
             'total' => $total,
             'buyer' => request()->user(),
+            'artists' => $artists,
+            'paymentReady' => $artists->isNotEmpty() && $artists->every(fn (array $artist) => $artist['ready']),
         ]);
     })->name('checkout');
 
@@ -487,9 +551,10 @@ Route::middleware('role:client')->group(function () {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:255'],
-            'address' => ['required', 'string', 'max:255'],
-            'payment' => ['required', 'in:card,gcash'],
         ]);
+        $validated['name'] = \Illuminate\Support\Str::title(
+            \Illuminate\Support\Str::squish($validated['name'])
+        );
 
         $cart = Session::get('cart', []);
 
@@ -498,7 +563,7 @@ Route::middleware('role:client')->group(function () {
                 ->withErrors(['cart' => 'Your cart is empty.']);
         }
 
-        $order = DB::transaction(function () use ($cart, $validated) {
+        DB::transaction(function () use ($cart, $validated) {
 
             $artworks = Artwork::with('artist')
                 ->where('status', 'approved')
@@ -514,7 +579,6 @@ Route::middleware('role:client')->group(function () {
             }
 
             $orderItems = [];
-            $total = 0;
 
             foreach ($cart as $artworkId => $quantity) {
                 $artwork = $artworks->get($artworkId);
@@ -532,57 +596,63 @@ Route::middleware('role:client')->group(function () {
                 }
 
                 $unitPrice = (float) $artwork->price;
-                $lineTotal = round($unitPrice * $quantity, 2);
-
-                $total += $lineTotal;
-
                 $orderItems[] = [
                     'artwork' => $artwork,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
-                    'subtotal' => $lineTotal,
+                    'subtotal' => round($unitPrice * $quantity, 2),
                 ];
             }
 
-            $total = round($total, 2);
+            foreach (collect($orderItems)->groupBy(fn (array $item) => $item['artwork']->user_id) as $sellerId => $sellerItems) {
+                $seller = $sellerItems->first()['artwork']->artist;
+                if (
+                    ! $seller || $seller->role !== 'artist'
+                    || blank($seller->payment_method)
+                    || blank($seller->payment_account_name)
+                    || blank($seller->payment_account_identifier)
+                ) {
+                    throw ValidationException::withMessages([
+                        'cart' => 'An artist has not completed their private payment setup. Please try again later.',
+                    ]);
+                }
 
-            $orderCode = 'LS-' . now()->format('Ymd') . '-' . Str::upper(Str::random(8));
-
-            $order = Order::create([
-                'order_code' => $orderCode,
-                'user_id' => request()->user()->id,
-                'buyer_name' => $validated['name'],
-                'buyer_email' => $validated['email'],
-                'shipping_address' => $validated['address'],
-                'payment_method' => $validated['payment'] === 'gcash'
-                    ? 'GCash (demo)'
-                    : 'Credit/debit card (demo)',
-                'payment_status' => 'unpaid',
-                'status' => 'Order placed',
-                'total_amount' => $total,
-            ]);
-
-            foreach ($orderItems as $item) {
-                $artwork = $item['artwork'];
-
-                $order->items()->create([
-                    'artwork_id' => $artwork->id,
-                    'artwork_title' => $artwork->title,
-                    'artist_name' => $artwork->artist?->name ?? 'Unknown Artist',
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'subtotal' => $item['subtotal'],
+                $total = round($sellerItems->sum('subtotal'), 2);
+                $order = Order::create([
+                    'order_code' => 'LS-' . now()->format('Ymd') . '-' . Str::upper(Str::random(8)),
+                    'user_id' => request()->user()->id,
+                    'seller_id' => $sellerId,
+                    'buyer_name' => $validated['name'],
+                    'buyer_email' => $validated['email'],
+                    'shipping_address' => 'Digital delivery',
+                    'payment_method' => strtoupper($seller->payment_method),
+                    'payment_recipient_name' => $seller->payment_account_name,
+                    'payment_recipient_identifier' => $seller->payment_account_identifier,
+                    'payment_qr_path' => $seller->payment_qr_path,
+                    'payment_status' => 'unpaid',
+                    'status' => 'Awaiting payment',
+                    'total_amount' => $total,
                 ]);
-            }
 
-            return $order;
+                foreach ($sellerItems as $item) {
+                    $artwork = $item['artwork'];
+                    $order->items()->create([
+                        'artwork_id' => $artwork->id,
+                        'artwork_title' => $artwork->title,
+                        'artist_name' => $seller->display_name,
+                        'quantity' => $item['quantity'],
+                        'unit_price' => $item['unit_price'],
+                        'subtotal' => $item['subtotal'],
+                    ]);
+                }
+            }
         });
 
         Session::forget('cart');
 
         return redirect()
-            ->route('transactions.show', $order->order_code)
-            ->with('status', 'Your order has been saved successfully. No payment was collected.');
+            ->route('transactions')
+            ->with('status', 'Your artist-specific orders are ready. Pay each artist separately and submit proof for review.');
     })->name('checkout.submit');
 
 
@@ -603,7 +673,7 @@ Route::middleware('role:client')->group(function () {
 
 
     Route::get('/transactions/{order}', function (string $order) {
-        $order = Order::with('items')
+        $order = Order::with(['items.review', 'seller'])
             ->where('user_id', request()->user()->id)
             ->where('order_code', $order)
             ->firstOrFail();
@@ -612,6 +682,95 @@ Route::middleware('role:client')->group(function () {
             'order' => $order,
         ]);
     })->where('order', 'LS-[A-Z0-9-]+')->name('transactions.show');
+
+    Route::post('/transactions/{order}/items/{item}/review', function (
+        Request $request,
+        string $order,
+        int $item
+    ) {
+        $validated = $request->validate([
+            'rating' => ['required', 'integer', 'between:1,5'],
+            'comment' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $purchase = Order::where('user_id', $request->user()->id)
+            ->where('order_code', $order)
+            ->firstOrFail();
+        abort_unless(
+            $purchase->payment_status === 'paid' && $purchase->status === 'Ready for download',
+            403
+        );
+        $line = $purchase->items()->with('review')->findOrFail($item);
+        abort_unless($line->delivery_path && $line->delivered_at && $line->downloaded_at, 403);
+        abort_unless($line->artwork_id, 404);
+        abort_unless(! $line->review, 409, 'This artwork has already been reviewed.');
+
+        $line->review()->create([
+            'buyer_id' => $request->user()->id,
+            'artwork_id' => $line->artwork_id,
+            'rating' => $validated['rating'],
+            'comment' => $validated['comment'] ?? null,
+        ]);
+
+        return back()->with('status', 'Thank you. Your verified artwork review is now visible.');
+    })->where('order', 'LS-[A-Z0-9-]+')->whereNumber('item')->name('transactions.items.review');
+
+    Route::post('/transactions/{order}/payment', function (Request $request, string $order) {
+        $validated = $request->validate([
+            'payment_reference' => ['nullable', 'string', 'max:120'],
+            'payment_proof' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+        $purchase = Order::where('user_id', $request->user()->id)
+            ->where('order_code', $order)->firstOrFail();
+        abort_unless(in_array($purchase->payment_status, ['unpaid', 'rejected'], true), 409);
+
+        $path = $request->file('payment_proof')->store("payment-proofs/{$purchase->order_code}", 'local');
+        if (! is_string($path)) {
+            throw new \RuntimeException('Unable to store the payment proof.');
+        }
+        if ($purchase->payment_proof_path) {
+            Storage::disk('local')->delete($purchase->payment_proof_path);
+        }
+        $purchase->update([
+            'payment_proof_path' => $path,
+            'payment_reference' => $validated['payment_reference'] ?? null,
+            'payment_submitted_at' => now(),
+            'payment_review_note' => null,
+            'payment_status' => 'submitted',
+            'status' => 'Payment submitted',
+        ]);
+
+        return back()->with('status', 'Payment proof sent privately to the artist. Your order will be delivered after they verify receipt.');
+    })->where('order', 'LS-[A-Z0-9-]+')->name('transactions.payment.submit');
+
+    Route::get('/transactions/{order}/payment-qr', function (Request $request, string $order) {
+        $purchase = Order::query()
+            ->where('user_id', $request->user()->id)
+            ->where('order_code', $order)->firstOrFail();
+        abort_unless($purchase->payment_qr_path, 404);
+        abort_unless(Storage::disk('local')->exists($purchase->payment_qr_path), 404);
+
+        return Storage::disk('local')->response($purchase->payment_qr_path);
+    })->where('order', 'LS-[A-Z0-9-]+')->name('transactions.payment.qr');
+
+    Route::get('/transactions/{order}/payment-proof', function (Request $request, string $order) {
+        $purchase = Order::where('user_id', $request->user()->id)
+            ->where('order_code', $order)->firstOrFail();
+        abort_unless($purchase->payment_proof_path && Storage::disk('local')->exists($purchase->payment_proof_path), 404);
+
+        return Storage::disk('local')->response($purchase->payment_proof_path);
+    })->where('order', 'LS-[A-Z0-9-]+')->name('transactions.payment.proof');
+
+    Route::get('/transactions/{order}/items/{item}/download', function (Request $request, string $order, int $item) {
+        $purchase = Order::with('items')
+            ->where('user_id', $request->user()->id)
+            ->where('order_code', $order)->firstOrFail();
+        abort_unless($purchase->payment_status === 'paid' && $purchase->status === 'Ready for download', 403);
+        $line = $purchase->items->firstWhere('id', $item);
+        abort_unless($line && $line->delivery_path && Storage::disk('local')->exists($line->delivery_path), 404);
+        $line->forceFill(['downloaded_at' => now()])->save();
+
+        return Storage::disk('local')->download($line->delivery_path, $line->delivery_filename);
+    })->where('order', 'LS-[A-Z0-9-]+')->whereNumber('item')->name('transactions.items.download');
 
 });
 
@@ -627,25 +786,107 @@ Route::middleware('role:artist')
     ->name('artist.')
     ->group(function () {
 
+        Route::get('/orders', function () {
+            $orders = Order::with(['customer', 'items'])
+                ->where('seller_id', request()->user()->id)
+                ->latest()
+                ->paginate(15);
+
+            return view('artist.orders', compact('orders'));
+        })->name('orders');
+
+        Route::get('/orders/{order}/payment-proof', function (string $order) {
+            $purchase = Order::where('seller_id', request()->user()->id)
+                ->where('order_code', $order)->firstOrFail();
+            abort_unless($purchase->payment_proof_path && Storage::disk('local')->exists($purchase->payment_proof_path), 404);
+
+            return Storage::disk('local')->response($purchase->payment_proof_path);
+        })->where('order', 'LS-[A-Z0-9-]+')->name('orders.payment-proof');
+
+        Route::post('/orders/{order}/payment-review', function (Request $request, string $order) {
+            $validated = $request->validate([
+                'decision' => ['required', 'in:approve,reject'],
+                'payment_review_note' => ['nullable', 'string', 'max:500', 'required_if:decision,reject'],
+            ]);
+            $purchase = Order::where('seller_id', $request->user()->id)
+                ->where('order_code', $order)->firstOrFail();
+            abort_unless($purchase->payment_status === 'submitted', 409);
+            abort_unless(
+                $purchase->payment_proof_path
+                    && Storage::disk('local')->exists($purchase->payment_proof_path),
+                409,
+                'The submitted payment proof is no longer available.'
+            );
+
+            $approved = $validated['decision'] === 'approve';
+            $commission = $purchase->calculatePlatformCommission();
+            $purchase->update([
+                'payment_status' => $approved ? 'paid' : 'rejected',
+                'status' => $approved ? 'Processing' : 'Payment rejected',
+                'platform_commission' => $approved ? $commission : 0,
+                'artist_earnings' => $approved ? round((float) $purchase->total_amount - $commission, 2) : 0,
+                'payment_review_note' => $validated['payment_review_note'] ?? null,
+                'payment_reviewed_at' => now(),
+            ]);
+
+            return back()->with('status', $approved
+                ? 'Payment marked as received. Upload each artwork delivery file to complete this order.'
+                : 'Payment proof rejected. The buyer can submit a corrected proof.');
+        })->where('order', 'LS-[A-Z0-9-]+')->name('orders.payment-review');
+
+        Route::post('/orders/{order}/items/{item}/delivery', function (Request $request, string $order, int $item) {
+            $validated = $request->validate([
+                'delivery_file' => ['required', 'file', 'mimes:zip,pdf,jpg,jpeg,png,webp', 'max:51200'],
+            ]);
+            $purchase = Order::with('items')
+                ->where('seller_id', $request->user()->id)
+                ->where('order_code', $order)->firstOrFail();
+            abort_unless($purchase->payment_status === 'paid' && $purchase->status === 'Processing', 409);
+            $line = $purchase->items->firstWhere('id', $item);
+            abort_unless($line, 404);
+
+            $path = $request->file('delivery_file')->store("artwork-deliveries/{$purchase->order_code}", 'local');
+            if (! is_string($path)) {
+                throw new \RuntimeException('Unable to store the artwork delivery file.');
+            }
+            if ($line->delivery_path) {
+                Storage::disk('local')->delete($line->delivery_path);
+            }
+
+            $filename = pathinfo($request->file('delivery_file')->getClientOriginalName(), PATHINFO_FILENAME);
+            $extension = $request->file('delivery_file')->getClientOriginalExtension();
+            $line->update([
+                'delivery_path' => $path,
+                'delivery_filename' => preg_replace('/[^A-Za-z0-9._-]/', '_', $filename) . '.' . strtolower($extension),
+                'delivered_at' => now(),
+            ]);
+
+            if (! $purchase->items()->whereNull('delivery_path')->exists()) {
+                $purchase->update(['status' => 'Ready for download']);
+            }
+
+            return back()->with('status', 'Delivery file saved privately. The buyer can download it from their order page.');
+        })->where('order', 'LS-[A-Z0-9-]+')->whereNumber('item')->name('orders.items.delivery');
+
         Route::get('/dashboard', function () {
             $artistId = request()->user()->artist_id;
 
             $artist = array_replace(
                 [
-                    'name' => request()->user()->name,
+                    'name' => request()->user()->display_name,
                     'email' => request()->user()->email,
                     'country' => 'Philippines',
-                    'studio' => request()->user()->name,
+                    'studio' => request()->user()->display_name,
                     'bio' => '',
                     'sales' => 0,
                     'revenue' => 0,
                 ],
                 config("demo.artists.$artistId", []),
+                request()->user()->profile ?? [],
                 [
-                    'name' => request()->user()->name,
+                    'name' => request()->user()->display_name,
                     'email' => request()->user()->email,
-                ],
-                request()->user()->profile ?? []
+                ]
             );
 
             $artworks = collect(config('demo.artworks'))
@@ -655,11 +896,25 @@ Route::middleware('role:artist')
             $submissions = Artwork::where('user_id', request()->user()->id)
                 ->latest()
                 ->get();
+            $artistOrders = Order::with(['customer', 'items'])
+                ->where('seller_id', request()->user()->id)
+                ->latest()
+                ->take(5)
+                ->get();
+            $paidOrders = Order::where('seller_id', request()->user()->id)
+                ->where('payment_status', 'paid');
+            $artist['sales'] = (int) \App\Models\OrderItem::whereIn(
+                'order_id',
+                (clone $paidOrders)->select('id')
+            )->sum('quantity');
+            $artist['revenue'] = (clone $paidOrders)->sum('artist_earnings');
+            $artist['commission'] = (clone $paidOrders)->sum('platform_commission');
 
             return view('artist.dashboard', compact(
                 'artist',
                 'artworks',
-                'submissions'
+                'submissions',
+                'artistOrders'
             ));
         })->name('dashboard');
 
@@ -746,7 +1001,9 @@ Route::middleware('role:admin')
                 'artworkCount' => count(config('demo.artworks')) + Artwork::count(),
                 'pendingCount' => $pendingCatalogCount + $pendingSubmissionCount,
                 'platformRevenue' => Order::where('payment_status', 'paid')
-                    ->sum('total_amount'),
+                    ->sum('platform_commission'),
+                'artistEarnings' => Order::where('payment_status', 'paid')
+                    ->sum('artist_earnings'),
                 'transactions' => Order::with(['items', 'customer'])
                     ->latest()
                     ->take(5)

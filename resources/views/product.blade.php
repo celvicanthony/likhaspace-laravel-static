@@ -41,6 +41,12 @@
     $isFavorite = $isFavorite ?? false;
 
     $isClient = auth()->check() && auth()->user()->role === 'client';
+    $artworkRating = $isDatabaseArtwork ? $artwork->reviews_avg_rating : null;
+    $reviewCount = $isDatabaseArtwork ? (int) $artwork->reviews_count : 0;
+    $paidSales = $isDatabaseArtwork ? (int) ($artwork->paid_sales_count ?? 0) : 0;
+    $artworkReviews = $isDatabaseArtwork
+        ? $artwork->reviews()->latest()->take(5)->get()
+        : collect();
 @endphp
 
 @push('styles')
@@ -154,31 +160,25 @@
                     data-product-image>
             @endif
 
-            @if (! $isDatabaseArtwork)
-                <span class="best-seller">
-                    <i class="bi bi-stars" aria-hidden="true"></i>
-                    Best seller
-                </span>
-            @endif
-
         </div>
 
         {{-- Artwork Information --}}
         <div class="product-summary">
 
-            @if (! $isDatabaseArtwork)
-                <div class="product-rating" aria-label="Rated 4.9 out of 5; 32 sold">
-                    <span class="product-stars" aria-hidden="true">
-                        <i class="bi bi-star-fill"></i>
-                        <i class="bi bi-star-fill"></i>
-                        <i class="bi bi-star-fill"></i>
-                        <i class="bi bi-star-fill"></i>
-                        <i class="bi bi-star-half"></i>
+            <div class="product-rating">
+                @if ($reviewCount > 0)
+                    <span class="product-stars" aria-label="Rated {{ number_format((float) $artworkRating, 1) }} out of 5">
+                        @for ($star = 1; $star <= 5; $star++)
+                            <i class="bi {{ $star <= round((float) $artworkRating) ? 'bi-star-fill' : 'bi-star' }}" aria-hidden="true"></i>
+                        @endfor
                     </span>
-                    <span class="product-rating-value">4.9</span>
-                    <span class="product-sold">32 sold</span>
-                </div>
-            @endif
+                    <span class="product-rating-value">{{ number_format((float) $artworkRating, 1) }}/5</span>
+                    <span class="product-sold">{{ $reviewCount }} review{{ $reviewCount === 1 ? '' : 's' }}</span>
+                @else
+                    <span class="product-sold">No reviews yet</span>
+                @endif
+                <span class="product-sold">{{ $paidSales }} sold</span>
+            </div>
 
             <h1 class="product-title">{{ $artworkTitle }}</h1>
 
@@ -191,7 +191,11 @@
                     <span class="d-block">Created By:</span>
 
                     <span class="creator-name">
+                        @if ($isDatabaseArtwork && $artwork->artist)
+                            <a class="text-decoration-none" href="{{ route('artists.show', $artwork->artist->id) }}">{{ $artworkArtist }}</a>
+                        @else
                         {{ $artworkArtist }}
+                        @endif
 
                         @if (! $isDatabaseArtwork)
                             <i class="bi bi-patch-check-fill creator-verified" aria-label="Verified artist"></i>
@@ -360,6 +364,27 @@
         </div>
 
     </article>
+
+    @if ($artworkReviews->isNotEmpty())
+        <section class="bg-studio-card rounded-4 p-3 p-md-4 mt-4" aria-labelledby="artwork-reviews-heading">
+            <h2 class="h5 fw-bold" id="artwork-reviews-heading">Buyer reviews</h2>
+            @foreach ($artworkReviews as $review)
+                <article class="border-top py-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-warning" aria-label="{{ $review->rating }} out of 5 stars">
+                            @for ($star = 1; $star <= 5; $star++)
+                                <i class="bi {{ $star <= $review->rating ? 'bi-star-fill' : 'bi-star' }}" aria-hidden="true"></i>
+                            @endfor
+                        </span>
+                        <span class="text-muted small">Verified buyer · {{ $review->created_at->format('M j, Y') }}</span>
+                    </div>
+                    @if ($review->comment)
+                        <p class="mb-0 mt-2">{{ $review->comment }}</p>
+                    @endif
+                </article>
+            @endforeach
+        </section>
+    @endif
 
     <a href="{{ route('explore') }}" class="product-back">
         <i class="bi bi-arrow-left" aria-hidden="true"></i>

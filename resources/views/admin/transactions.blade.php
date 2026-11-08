@@ -131,6 +131,10 @@
 
                             <td class="text-nowrap fw-bold">
                                 ₱{{ number_format($order->total_amount, 2) }}
+                                @if ($order->payment_status === 'paid')
+                                    <div class="text-muted small fw-normal">Platform 10%: ₱{{ number_format($order->platform_commission, 2) }}</div>
+                                    <div class="text-muted small fw-normal">Artist 90%: ₱{{ number_format($order->artist_earnings, 2) }}</div>
+                                @endif
                             </td>
 
                             <td class="text-nowrap">

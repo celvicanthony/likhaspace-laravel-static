@@ -36,9 +36,13 @@
         </p>
     </header>
 
+    @if (session('status'))
+        <div class="alert bg-studio-card rounded-4" role="status">{{ session('status') }}</div>
+    @endif
+
     <div class="alert bg-studio-card rounded-4 small mb-4" role="note">
-        <i class="bi bi-info-circle me-2 text-primary"></i>
-        Orders are saved in the database. Card and GCash payments are not processed in this prototype.
+        <i class="bi bi-shield-lock me-2 text-primary"></i>
+        Each artist order is paid separately. The artist reviews your private payment proof, then securely delivers your digital artwork.
     </div>
 
     <section class="d-grid gap-3" aria-label="Order history">

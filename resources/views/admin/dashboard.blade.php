@@ -206,15 +206,23 @@
 
         <div class="col">
             <article class="platform-metric h-100">
-                <span class="metric-label">Platform revenue</span>
+                <span class="metric-label">Platform share (10%)</span>
 
                 <strong>
                     ₱{{ number_format((float) $platformRevenue, 2) }}
                 </strong>
 
                 <small class="text-muted">
-                    From paid orders
+                    Tracked from paid orders; settlement handled separately
                 </small>
+            </article>
+        </div>
+
+        <div class="col">
+            <article class="platform-metric h-100">
+                <span class="metric-label">Artist earnings (90%)</span>
+                <strong>₱{{ number_format((float) $artistEarnings, 2) }}</strong>
+                <small class="text-muted">Tracked from paid orders; payouts handled separately</small>
             </article>
         </div>
 

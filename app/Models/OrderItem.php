@@ -1,10 +1,10 @@
-
 <?php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class OrderItem extends Model
 {
@@ -16,6 +16,10 @@ class OrderItem extends Model
         'quantity',
         'unit_price',
         'subtotal',
+        'delivery_path',
+        'delivery_filename',
+        'delivered_at',
+        'downloaded_at',
     ];
 
     protected function casts(): array
@@ -23,6 +27,8 @@ class OrderItem extends Model
         return [
             'unit_price' => 'decimal:2',
             'subtotal' => 'decimal:2',
+            'delivered_at' => 'datetime',
+            'downloaded_at' => 'datetime',
         ];
     }
 
@@ -34,5 +40,10 @@ class OrderItem extends Model
     public function artwork(): BelongsTo
     {
         return $this->belongsTo(Artwork::class);
+    }
+
+    public function review(): HasOne
+    {
+        return $this->hasOne(ArtworkReview::class);
     }
 }
