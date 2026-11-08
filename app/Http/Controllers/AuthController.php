@@ -60,24 +60,48 @@ class AuthController extends Controller
     public function register(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
+            'first_name' => ['required', 'string', 'max:60'],
+            'middle_name' => ['nullable', 'string', 'max:60'],
+            'last_name' => ['required', 'string', 'max:60'],
+            'name_extension' => ['nullable', 'string', 'max:20'],
+            'display_name' => ['nullable', 'string', 'max:120'],
+            'birthdate' => ['nullable', 'date', 'before:today'],
+            'gender' => ['nullable', Rule::in(['female', 'male', 'non_binary', 'other', 'prefer_not_to_say'])],
+            'contact' => ['nullable', 'string', 'max:40'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'role' => ['required', Rule::in(['client', 'artist'])],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
+        $name = collect([
+            $validated['first_name'],
+            $validated['middle_name'] ?? null,
+            $validated['last_name'],
+            $validated['name_extension'] ?? null,
+        ])->filter()->implode(' ');
+        $displayName = filled($validated['display_name'] ?? null)
+            ? $validated['display_name']
+            : trim($validated['first_name'].' '.$validated['last_name']);
+
         $artistId = $validated['role'] === 'artist'
-            ? Str::slug($validated['name']).'-'.Str::lower(Str::random(8))
+            ? Str::slug($displayName).'-'.Str::lower(Str::random(8))
             : null;
 
         $user = User::create([
-            'name' => $validated['name'],
+            'name' => $name,
+            'first_name' => $validated['first_name'],
+            'middle_name' => $validated['middle_name'] ?? null,
+            'last_name' => $validated['last_name'],
+            'name_extension' => $validated['name_extension'] ?? null,
+            'display_name' => $displayName,
+            'birthdate' => $validated['birthdate'] ?? null,
+            'gender' => $validated['gender'] ?? null,
             'email' => $validated['email'],
             'role' => $validated['role'],
             'artist_id' => $artistId,
             'status' => 'active',
             'password' => $validated['password'],
-            'profile' => [],
+            'profile' => ['contact' => $validated['contact'] ?? ''],
         ]);
 
         Auth::login($user);

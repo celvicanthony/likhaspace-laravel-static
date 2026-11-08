@@ -109,6 +109,8 @@
         .sidebar-inner { display: flex; min-height: 100%; flex-direction: column; padding: 18px 12px; }
         .sidebar-top { display: flex; min-height: 40px; align-items: center; justify-content: space-between; gap: 8px; padding: 0 7px; }
         .sidebar-account { min-width: 0; overflow: hidden; white-space: nowrap; }
+        .sidebar-account-avatar { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border-radius: 50%; background: var(--sidebar-hover); color: var(--sidebar-text); }
+        .sidebar-account-avatar i { font-size: 1.2rem; line-height: 1; }
         .sidebar-collapse-toggle { display: inline-grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: transparent; color: var(--sidebar-text); }
         .sidebar-collapse-toggle:hover { background: var(--sidebar-hover); }
         .sidebar-close { border: 0; background: transparent; color: var(--sidebar-text); font-size: 1.25rem; }
@@ -223,7 +225,7 @@
     <div class="sidebar-inner">
         <div class="sidebar-top">
             <div class="sidebar-account d-flex align-items-center gap-2">
-                <span class="rounded-circle d-grid place-items-center fw-bold" style="width: 38px; height: 38px; flex: 0 0 38px; background: var(--sidebar-hover); color: var(--sidebar-text)"><i class="bi bi-person"></i></span>
+                <span class="sidebar-account-avatar" aria-hidden="true"><i class="bi bi-person"></i></span>
                 <div class="small fw-semibold" style="color: var(--sidebar-text)">{{ $workspaceContext ? ($role === 'artist' ? 'Artist Studio' : 'Platform Admin') : ($role === 'guest' ? 'Welcome' : 'My Account') }}<small class="d-block fw-normal opacity-75">{{ ucfirst($role) }}</small></div>
             </div>
             <button class="sidebar-collapse-toggle d-none d-lg-inline-grid" type="button" data-sidebar-collapse aria-label="Collapse sidebar" aria-pressed="false" title="Collapse sidebar"><i class="bi bi-chevron-left"></i></button>
@@ -232,6 +234,7 @@
         @if ($role === 'artist')
             <div class="sidebar-label">ARTIST STUDIO</div>
             <a class="side-link {{ request()->routeIs('artist.dashboard') ? 'active' : '' }}" href="{{ route('artist.dashboard') }}" aria-label="Studio Dashboard" title="Studio Dashboard"><i class="bi bi-speedometer2"></i><span class="side-link-text">Studio Dashboard</span></a>
+            <a class="side-link {{ request()->routeIs('artist.orders') ? 'active' : '' }}" href="{{ route('artist.orders') }}" aria-label="Orders and payments" title="Orders and payments"><i class="bi bi-receipt"></i><span class="side-link-text">Orders &amp; payments</span></a>
             <a class="side-link {{ request()->routeIs('artist.inventory') ? 'active' : '' }}" href="{{ route('artist.inventory') }}" aria-label="My Artwork" title="My Artwork"><i class="bi bi-palette"></i><span class="side-link-text">My Artwork</span></a>
             <a class="side-link {{ request()->routeIs('artist.profile') ? 'active' : '' }}" href="{{ route('artist.profile') }}" aria-label="Artist Profile" title="Artist Profile"><i class="bi bi-person-gear"></i><span class="side-link-text">Artist Profile</span></a>
             <div class="sidebar-spacer"></div>

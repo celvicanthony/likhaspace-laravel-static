@@ -38,7 +38,14 @@
                     @error('cover_image')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     <div class="form-text text-muted">PNG, JPG, or WebP up to 8 MB.</div>
                 </div>
-                <div class="col-12 col-md-6"><label class="form-label" for="artist-name">Artist or studio name</label><input id="artist-name" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $artist['name']) }}" required>@error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-6"><label class="form-label" for="first-name">First name</label><input id="first-name" name="first_name" class="form-control @error('first_name') is-invalid @enderror" value="{{ old('first_name', $artist['first_name']) }}" maxlength="60" autocomplete="given-name" required>@error('first_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-6"><label class="form-label" for="middle-name">Middle name <span class="text-muted">(optional)</span></label><input id="middle-name" name="middle_name" class="form-control @error('middle_name') is-invalid @enderror" value="{{ old('middle_name', $artist['middle_name']) }}" maxlength="60" autocomplete="additional-name">@error('middle_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-6"><label class="form-label" for="last-name">Last name</label><input id="last-name" name="last_name" class="form-control @error('last_name') is-invalid @enderror" value="{{ old('last_name', $artist['last_name']) }}" maxlength="60" autocomplete="family-name" required>@error('last_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-6"><label class="form-label" for="name-extension">Name extension <span class="text-muted">(optional)</span></label><input id="name-extension" name="name_extension" class="form-control @error('name_extension') is-invalid @enderror" value="{{ old('name_extension', $artist['name_extension']) }}" placeholder="Jr., Sr., III">@error('name_extension')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-6"><label class="form-label" for="display-name">Display name</label><input id="display-name" name="display_name" class="form-control @error('display_name') is-invalid @enderror" value="{{ old('display_name', $artist['display_name']) }}" autocomplete="nickname"><div class="form-text text-muted">Shown publicly instead of your full legal name.</div>@error('display_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-6"><label class="form-label" for="birthdate">Birthdate <span class="text-muted">(optional)</span></label><input id="birthdate" name="birthdate" type="date" class="form-control @error('birthdate') is-invalid @enderror" value="{{ old('birthdate', $artist['birthdate']?->format('Y-m-d')) }}" max="{{ now()->subDay()->toDateString() }}" autocomplete="bday">@error('birthdate')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-6"><label class="form-label" for="gender">Gender <span class="text-muted">(optional)</span></label><select id="gender" name="gender" class="form-select @error('gender') is-invalid @enderror"><option value="">Prefer not to share</option><option value="female" @selected(old('gender', $artist['gender']) === 'female')>Female</option><option value="male" @selected(old('gender', $artist['gender']) === 'male')>Male</option><option value="non_binary" @selected(old('gender', $artist['gender']) === 'non_binary')>Non-binary</option><option value="other" @selected(old('gender', $artist['gender']) === 'other')>Other</option><option value="prefer_not_to_say" @selected(old('gender', $artist['gender']) === 'prefer_not_to_say')>Prefer not to say</option></select>@error('gender')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12"><p class="form-text text-muted mb-0">Your birthdate and gender are private account details and are not displayed on your public artist profile.</p></div>
                 <div class="col-12 col-md-6"><label class="form-label" for="artist-email">Contact email</label><input id="artist-email" name="email" type="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email', $artist['email']) }}" required>@error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12 col-md-6"><label class="form-label" for="artist-contact">Contact number</label><input id="artist-contact" name="contact" type="tel" class="form-control @error('contact') is-invalid @enderror" value="{{ old('contact', $artist['contact'] ?? '') }}" autocomplete="tel">@error('contact')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12 col-md-6"><label class="form-label" for="artist-country">Primary culture</label><select id="artist-country" name="country" class="form-select">@foreach (['Philippines', 'Greece', 'Scotland', 'Japan'] as $country)<option value="{{ $country }}" @selected(old('country', $artist['country']) === $country)>{{ $country }}</option>@endforeach</select></div>
@@ -54,6 +61,38 @@
                     </div>
                     <button class="btn btn-outline-likha btn-sm rounded-pill mt-2" id="add-portfolio-link" type="button">Add another link</button>
                     @error('portfolio_links')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                </div>
+            </div>
+        </section>
+        <section class="bg-studio-card rounded-4 p-3 p-md-4 mb-3">
+            <h2 class="h5 fw-bold mb-2">Private payment details</h2>
+            <p class="text-muted small">These details are encrypted at rest and shown only to buyers who have an order with you. Never add bank or wallet credentials or a PIN.</p>
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="payment-method">Payment service</label>
+                    <select id="payment-method" name="payment_method" class="form-select @error('payment_method') is-invalid @enderror">
+                        <option value="">Choose a service</option>
+                        <option value="gcash" @selected(old('payment_method', $artist['payment_method']) === 'gcash')>GCash</option>
+                        <option value="instapay" @selected(old('payment_method', $artist['payment_method']) === 'instapay')>InstaPay</option>
+                    </select>
+                    @error('payment_method')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="payment-account-name">Recipient name</label>
+                    <input id="payment-account-name" name="payment_account_name" class="form-control @error('payment_account_name') is-invalid @enderror" value="{{ old('payment_account_name', $artist['payment_account_name']) }}" autocomplete="off" placeholder="Artist or studio name">
+                    @error('payment_account_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="payment-account-identifier">GCash number or InstaPay account/handle</label>
+                    <input id="payment-account-identifier" name="payment_account_identifier" class="form-control @error('payment_account_identifier') is-invalid @enderror" value="{{ old('payment_account_identifier', $artist['payment_account_identifier']) }}" autocomplete="off" placeholder="e.g. 09xx... or artist@likhaspace.ph">
+                    <div class="form-text text-muted">Example format only—enter an identifier that belongs to your own receiving account.</div>
+                    @error('payment_account_identifier')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="payment-qr">Payment QR code (optional)</label>
+                    <input id="payment-qr" name="payment_qr" type="file" class="form-control @error('payment_qr') is-invalid @enderror" accept="image/png,image/jpeg,image/webp">
+                    @error('payment_qr')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <div class="form-text text-muted">{{ $artist['payment_qr_configured'] ? 'A private QR code is saved. Upload a replacement to change it.' : 'PNG, JPG, or WebP up to 5 MB. Only buyers with your order can view it.' }}</div>
                 </div>
             </div>
         </section>

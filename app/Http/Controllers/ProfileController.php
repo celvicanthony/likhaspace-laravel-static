@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,7 +34,14 @@ class ProfileController extends Controller
 
         $artist = array_replace(
             [
-                'name' => $user->name,
+                'name' => $user->display_name,
+                'first_name' => $user->first_name,
+                'middle_name' => $user->middle_name,
+                'last_name' => $user->last_name,
+                'name_extension' => $user->name_extension,
+                'display_name' => $user->display_name,
+                'birthdate' => $user->birthdate,
+                'gender' => $user->gender,
                 'email' => $user->email,
                 'country' => 'Philippines',
                 'studio' => $user->name,
@@ -41,11 +49,22 @@ class ProfileController extends Controller
                 'contact' => '',
                 'portfolio_links' => [],
                 'notifications' => [],
+                'payment_method' => $user->payment_method,
+                'payment_account_name' => $user->payment_account_name,
+                'payment_account_identifier' => $user->payment_account_identifier,
+                'payment_qr_configured' => filled($user->payment_qr_path),
             ],
             config("demo.artists.{$user->artist_id}", []),
             $user->profile ?? [],
             [
-                'name' => $user->name,
+                'name' => $user->display_name,
+                'first_name' => $user->first_name,
+                'middle_name' => $user->middle_name,
+                'last_name' => $user->last_name,
+                'name_extension' => $user->name_extension,
+                'display_name' => $user->display_name,
+                'birthdate' => $user->birthdate,
+                'gender' => $user->gender,
                 'email' => $user->email,
             ]
         );
@@ -73,7 +92,13 @@ class ProfileController extends Controller
         abort_unless($user->role === $role, 403);
 
         $rules = [
-            'name' => ['required', 'string', 'max:120'],
+            'first_name' => ['required', 'string', 'max:60'],
+            'middle_name' => ['nullable', 'string', 'max:60'],
+            'last_name' => ['required', 'string', 'max:60'],
+            'name_extension' => ['nullable', 'string', 'max:20'],
+            'display_name' => ['nullable', 'string', 'max:120'],
+            'birthdate' => ['nullable', 'date', 'before:today'],
+            'gender' => ['nullable', Rule::in(['female', 'male', 'non_binary', 'other', 'prefer_not_to_say'])],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->getKey())],
             'contact' => ['nullable', 'string', 'max:40'],
             'current_password' => ['required_with:new_password', 'current_password'],
@@ -91,6 +116,10 @@ class ProfileController extends Controller
                 'portfolio_links' => ['nullable', 'array', 'max:10'],
                 'portfolio_links.*' => ['nullable', 'url', 'max:2048'],
                 'cover_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+                'payment_method' => ['nullable', Rule::in(['gcash', 'instapay'])],
+                'payment_account_name' => ['nullable', 'string', 'max:120', 'required_with:payment_method,payment_account_identifier'],
+                'payment_account_identifier' => ['nullable', 'string', 'max:120', 'required_with:payment_method,payment_account_name'],
+                'payment_qr' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             ];
         } else {
             $rules += [
@@ -105,7 +134,21 @@ class ProfileController extends Controller
         $validated = $request->validate($rules);
         $profile = $user->profile ?? [];
         $oldEmail = $user->email;
-        $user->name = $validated['name'];
+        $user->first_name = $validated['first_name'];
+        $user->middle_name = $validated['middle_name'] ?? null;
+        $user->last_name = $validated['last_name'];
+        $user->name_extension = $validated['name_extension'] ?? null;
+        $user->name = collect([
+            $validated['first_name'],
+            $validated['middle_name'] ?? null,
+            $validated['last_name'],
+            $validated['name_extension'] ?? null,
+        ])->filter()->implode(' ');
+        $user->display_name = filled($validated['display_name'] ?? null)
+            ? $validated['display_name']
+            : trim($validated['first_name'].' '.$validated['last_name']);
+        $user->birthdate = $validated['birthdate'] ?? null;
+        $user->gender = $validated['gender'] ?? null;
         $user->email = $validated['email'];
 
         if ($oldEmail !== $user->email) {
@@ -125,6 +168,10 @@ class ProfileController extends Controller
         }
 
         if ($role === 'artist') {
+            $user->payment_method = $validated['payment_method'] ?? null;
+            $user->payment_account_name = $validated['payment_account_name'] ?? null;
+            $user->payment_account_identifier = $validated['payment_account_identifier'] ?? null;
+
             $portfolioLinks = array_map(
                 static fn (?string $url): string => trim($url ?? ''),
                 $validated['portfolio_links'] ?? []
@@ -157,8 +204,25 @@ class ProfileController extends Controller
             }
         }
 
+        $replacedPaymentQr = null;
+        if ($role === 'artist' && $request->hasFile('payment_qr')) {
+            $oldPath = $user->payment_qr_path;
+            $storedPath = $request->file('payment_qr')->store("artist-payments/{$user->getKey()}", 'local');
+            if (! is_string($storedPath)) {
+                throw new RuntimeException('Unable to store the payment QR code.');
+            }
+            $user->payment_qr_path = $storedPath;
+
+            if (is_string($oldPath) && str_starts_with($oldPath, "artist-payments/{$user->getKey()}/")) {
+                $replacedPaymentQr = $oldPath;
+            }
+        }
+
         $user->profile = $profile;
         $user->save();
+        if ($replacedPaymentQr && ! Order::where('payment_qr_path', $replacedPaymentQr)->exists()) {
+            Storage::disk('local')->delete($replacedPaymentQr);
+        }
         Storage::disk('public')->delete($replacedFiles);
 
         if ($role === 'artist' && $user->artist_id) {
