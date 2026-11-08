@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Storage;
 
 class ArtworkController extends Controller
 {
-   
+
     public function index()
 {
     $artworks = Artwork::where('user_id', auth()->id())

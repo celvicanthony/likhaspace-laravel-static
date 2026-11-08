@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', ($profile['studio'] ?? $artist->display_name) . ' | LikhaSpace')
+@section('title', ($profile['studio'] ?? $artist->name) . ' | LikhaSpace')
 
 @push('styles')
 <style>
@@ -24,7 +24,7 @@
     <a class="small text-decoration-none" href="{{ route('explore') }}"><i class="bi bi-arrow-left me-1"></i>Explore artwork</a>
 
     @if (!empty($profile['cover_image']))
-        <img class="artist-cover mt-3" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($profile['cover_image']) }}" alt="">
+        <img class="artist-cover mt-3" src="{{ asset('storage/' . ltrim($profile['cover_image'], '/')) }}" alt="">
     @else
         <div class="artist-cover mt-3" aria-hidden="true"></div>
     @endif
@@ -32,16 +32,16 @@
     <header class="artist-intro">
         <span class="artist-avatar" aria-hidden="true">
             @if (!empty($profile['avatar']))
-                <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($profile['avatar']) }}" alt="">
+                <img src="{{ asset('storage/' . ltrim($profile['avatar'], '/')) }}" alt="">
             @else
                 <i class="bi bi-person-fill"></i>
             @endif
         </span>
         <div>
             <div class="home-kicker">{{ $profile['country'] ?? 'Independent artist' }}</div>
-            <h1 class="h2 fw-bold mb-1">{{ $profile['studio'] ?? $artist->display_name }}</h1>
-            @if (($profile['studio'] ?? $artist->display_name) !== $artist->display_name)
-                <p class="text-muted mb-0">{{ $artist->display_name }}</p>
+            <h1 class="h2 fw-bold mb-1">{{ $profile['studio'] ?? $artist->name }}</h1>
+            @if (($profile['studio'] ?? $artist->name) !== $artist->name)
+                <p class="text-muted mb-0">{{ $artist->name }}</p>
             @endif
             @if ($artistReviewCount > 0)
                 <div class="d-flex align-items-center gap-2 mt-2">

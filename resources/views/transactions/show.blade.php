@@ -72,10 +72,26 @@
         <div class="alert alert-danger rounded-4" role="alert">{{ $errors->first() }}</div>
     @endif
 
-    <div class="alert bg-studio-card rounded-4 small" role="note">
-        <i class="bi bi-shield-lock me-2 text-primary"></i>
-        Pay the artist directly. They will check their account and confirm receipt before uploading your private digital files.
-    </div>
+    @if ($order->payment_status === 'cancelled')
+        <div class="alert alert-secondary rounded-4" role="status">
+            This order was cancelled{{ $order->cancelled_at ? ' on '.$order->cancelled_at->format('M j, Y \a\t g:i A') : '' }}. Its payment details and download access are no longer available.
+        </div>
+    @else
+        <div class="alert bg-studio-card rounded-4 small" role="note">
+            <i class="bi bi-shield-lock me-2 text-primary"></i>
+            Pay the artist directly. They will check their account and confirm receipt before uploading your private digital files.
+        </div>
+
+        @if ($order->canBeCancelled())
+            <form method="POST" action="{{ route('transactions.cancel', $order->order_code) }}" class="mb-4" onsubmit="return confirm('Cancel this order? This cannot be undone.');">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger rounded-pill">
+                    <i class="bi bi-x-circle me-1"></i>Cancel this order
+                </button>
+                <span class="text-muted small ms-2">Available until you submit payment proof or the artist confirms payment.</span>
+            </form>
+        @endif
+    @endif
 
     <section class="transaction-panel p-3 p-md-4 mb-4" aria-labelledby="progress-heading">
         <h2 id="progress-heading">Fulfillment progress</h2>
@@ -101,16 +117,18 @@
         </p>
     </section>
 
-    @if (in_array($order->payment_status, ['unpaid', 'rejected'], true) && $order->seller)
+    @if (in_array($order->payment_status, ['unpaid', 'rejected'], true) && $order->status !== 'Cancelled' && $order->seller)
         <section class="transaction-panel p-3 p-md-4 mb-4" aria-labelledby="payment-heading">
             <h2 id="payment-heading">Pay {{ $order->seller->name }}</h2>
             <p class="text-muted small">Send exactly ₱{{ number_format($order->total_amount, 2) }} using {{ ucfirst($order->payment_method) }}. Payment details are private to this order and are not shown on public artist pages.</p>
             <div class="transaction-detail"><span>Recipient</span><span>{{ $order->payment_recipient_name }}</span></div>
             <div class="transaction-detail"><span>{{ strtoupper($order->payment_method) }} account</span><span>{{ $order->payment_recipient_identifier }}</span></div>
-            @if ($order->payment_qr_path)
+            @if ($paymentQrAvailable)
                 <div class="mt-3">
-                    <img src="{{ route('transactions.payment.qr', $order->order_code) }}" alt="Private payment QR code for this order" class="img-fluid rounded-3 border" style="width: 220px; max-height: 220px; object-fit: contain">
+                    <img src="{{ route('transactions.payment.qr', $order->order_code) }}" alt="Private payment QR code for this order" class="img-fluid rounded-3 border" style="width: 220px; max-height: 220px; object-fit: contain" loading="eager" decoding="sync">
                 </div>
+            @else
+                <p class="small text-muted mt-3 mb-0">No QR image is available. Use the account details above to send payment.</p>
             @endif
             @if ($order->payment_status === 'rejected')
                 <div class="alert alert-warning small mt-3 mb-0">The artist requested a new proof: {{ $order->payment_review_note }}</div>

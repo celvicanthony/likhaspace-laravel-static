@@ -88,8 +88,7 @@ class RoleAccessTest extends TestCase
     public function test_public_registration_creates_only_client_or_artist_accounts(): void
     {
         $this->post(route('register.submit'), [
-            'first_name' => 'New',
-            'last_name' => 'Collector',
+            'name' => 'New Collector',
             'email' => 'new-client@example.test',
             'role' => 'client',
             'password' => 'collectorpass',
@@ -99,8 +98,7 @@ class RoleAccessTest extends TestCase
 
         $this->post(route('logout'));
         $this->post(route('register.submit'), [
-            'first_name' => 'New',
-            'last_name' => 'Artist',
+            'name' => 'New Artist',
             'email' => 'new-artist@example.test',
             'role' => 'artist',
             'password' => 'artistpass123',
@@ -112,8 +110,7 @@ class RoleAccessTest extends TestCase
 
         $this->post(route('logout'));
         $this->from(route('register'))->post(route('register.submit'), [
-            'first_name' => 'Pretend',
-            'last_name' => 'Admin',
+            'name' => 'Pretend Admin',
             'email' => 'pretend-admin@example.test',
             'role' => 'admin',
             'password' => 'adminpass123',
@@ -149,9 +146,7 @@ class RoleAccessTest extends TestCase
         $this->actingAs($client)->get(route('profile'))->assertOk()->assertViewIs('client.profile.edit');
 
         $this->post(route('profile.update'), [
-            'first_name' => 'Updated',
-            'last_name' => 'Collector',
-            'display_name' => 'Updated Collector',
+            'name' => 'Updated Collector',
             'email' => 'updated-collector@example.test',
             'bio' => 'A collector profile.',
             'contact' => '+63 900 000 0000',
@@ -180,9 +175,7 @@ class RoleAccessTest extends TestCase
         $artist = $this->makeUser('artist', 'heather-mcrae', 'artist-profile@example.test', 'artist-old-pass');
 
         $this->actingAs($artist)->post(route('artist.profile.update'), [
-            'first_name' => 'Heather',
-            'last_name' => 'Studio',
-            'display_name' => 'Heather Studio',
+            'name' => 'Heather Studio',
             'email' => 'heather-studio@example.test',
             'country' => 'Scotland',
             'studio' => 'Loch and Light',

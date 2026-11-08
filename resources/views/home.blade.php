@@ -57,7 +57,7 @@
         @forelse ($creators as $creator)
             <a class="creator-row" href="{{ route('artists.show', $creator->id) }}">
                 <span class="creator-avatar"><i class="bi bi-person-fill fs-5"></i></span>
-                <span><strong class="d-block small">{{ $creator->display_name }}</strong><small class="text-muted">Digital artist</small></span>
+                <span><strong class="d-block small">{{ $creator->name }}</strong><small class="text-muted">Digital artist</small></span>
                 <i class="bi bi-arrow-up-right creator-arrow"></i>
             </a>
         @empty

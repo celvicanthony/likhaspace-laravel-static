@@ -271,10 +271,18 @@
                         </form>
 
                         {{-- Buy Now --}}
-                        <a href="{{ route('cart') }}" class="product-buy">
-                            <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
-                            Buy Now
-                        </a>
+                        <form
+                            action="{{ route('cart.buy-now', $artworkId) }}"
+                            method="POST"
+                            class="product-cart-form">
+
+                            @csrf
+
+                            <button type="submit" class="product-buy w-100">
+                                <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
+                                Buy Now
+                            </button>
+                        </form>
 
                         {{-- Add to Favorites --}}
                         <form
@@ -298,16 +306,10 @@
 
                     @else
 
-                        {{-- Demo Artwork Actions --}}
-                        <a href="{{ route('cart') }}" class="product-add">
-                            <i class="bi bi-bag-plus" aria-hidden="true"></i>
-                            Add to Cart
-                        </a>
-
-                        <a href="{{ route('checkout') }}" class="product-buy">
-                            <i class="bi bi-lightning-charge-fill" aria-hidden="true"></i>
-                            Buy Now
-                        </a>
+                        <div class="alert alert-info small mb-0" role="note">
+                            This is sample artwork and is not available for purchase.
+                            <a href="{{ route('explore') }}" class="alert-link">Browse available artwork</a>.
+                        </div>
 
                         @if ($artworkId)
                             <form

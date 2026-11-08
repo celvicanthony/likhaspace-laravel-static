@@ -41,13 +41,7 @@ class ProfileEditingTest extends TestCase
         $this->actingAs($client);
 
         $this->put(route('client.profile.update'), [
-            'first_name' => 'Updated',
-            'middle_name' => 'Middle',
-            'last_name' => 'Client',
-            'name_extension' => 'Jr.',
-            'display_name' => 'Client Artist',
-            'birthdate' => '1992-03-04',
-            'gender' => 'female',
+            'name' => 'Updated Client',
             'email' => $client->email,
             'contact' => '+63 900 000 0000',
             'address' => '18 Mabini Street',
@@ -59,13 +53,52 @@ class ProfileEditingTest extends TestCase
             ->assertSessionHas('status', 'Profile updated successfully!');
 
         $client->refresh();
-        $this->assertSame('Updated Middle Client Jr.', $client->name);
-        $this->assertSame('Client Artist', $client->display_name);
-        $this->assertSame('1992-03-04', $client->birthdate->format('Y-m-d'));
-        $this->assertSame('female', $client->gender);
+        $this->assertSame('Updated Client', $client->name);
         $this->assertSame('18 Mabini Street', $client->profile['address']);
         $this->assertSame('+63 900 000 0000', $client->profile['contact']);
         Storage::disk('public')->assertExists($client->profile['avatar']);
+
+        $this->get(route('client.profile.edit'))
+            ->assertOk()
+            ->assertSee(asset('storage/' . $client->profile['avatar']));
+    }
+
+    public function test_profile_edit_does_not_require_or_change_password(): void
+    {
+        $client = $this->makeUser('client', 'client@example.test');
+        $originalHash = $client->password;
+
+        $this->actingAs($client)->put(route('client.profile.update'), [
+            'name' => 'Updated Client',
+            'email' => $client->email,
+            'current_password' => 'incorrect-autofilled-password',
+            'new_password' => 'accidental-new-password',
+            'new_password_confirmation' => 'accidental-new-password',
+        ])->assertRedirect(route('client.profile.edit'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($originalHash, $client->fresh()->password);
+    }
+
+    public function test_password_change_is_separate_and_requires_the_current_password(): void
+    {
+        $client = $this->makeUser('client', 'client@example.test');
+        $this->actingAs($client);
+
+        $this->put(route('password.update'), [
+            'current_password' => 'incorrect-password',
+            'password' => 'new-secure-password',
+            'password_confirmation' => 'new-secure-password',
+        ])->assertSessionHasErrorsIn('updatePassword', 'current_password');
+
+        $this->put(route('password.update'), [
+            'current_password' => 'password',
+            'password' => 'new-secure-password',
+            'password_confirmation' => 'new-secure-password',
+        ])->assertRedirect()
+            ->assertSessionHas('status', 'password-updated');
+
+        $this->assertTrue(Hash::check('new-secure-password', $client->fresh()->password));
     }
 
     public function test_artist_can_update_own_profile_and_cover_image(): void
@@ -75,11 +108,7 @@ class ProfileEditingTest extends TestCase
         $artist = $this->makeUser('artist', 'artist@example.test', 'artist-1');
 
         $this->actingAs($artist)->post(route('artist.profile.update'), [
-            'first_name' => 'Artist',
-            'last_name' => 'Name',
-            'display_name' => 'Artist Creator',
-            'birthdate' => '1991-04-05',
-            'gender' => 'non_binary',
+            'name' => 'Artist Studio',
             'email' => $artist->email,
             'contact' => '+63 911 000 0000',
             'country' => 'Philippines',
@@ -88,26 +117,45 @@ class ProfileEditingTest extends TestCase
             'payment_method' => 'gcash',
             'payment_account_name' => 'Artist Name',
             'payment_account_identifier' => '+639111112222',
-            'payment_qr' => $this->fakePng('payment-qr.png'),
             'portfolio_links' => ['https://portfolio.example.test', ''],
             'avatar' => $this->fakePng('avatar.png'),
             'cover_image' => $this->fakePng('cover.png'),
         ])->assertRedirect(route('artist.profile.edit'))
             ->assertSessionHas('status', 'Profile updated successfully!');
 
+        $this->post(route('artist.profile.payment-qr.update'), [
+            'payment_qr' => $this->fakePng('payment-qr.png'),
+        ])->assertRedirect(route('artist.profile.edit'))
+            ->assertSessionHas('status', 'Payment QR code saved. Buyers will see it during checkout and on their order payment page.');
+
         $artist->refresh();
         $this->assertSame('+63 911 000 0000', $artist->profile['contact']);
-        $this->assertSame('Artist Creator', $artist->display_name);
-        $this->assertSame('1991-04-05', $artist->birthdate->format('Y-m-d'));
-        $this->assertSame('non_binary', $artist->gender);
         $this->assertSame(['https://portfolio.example.test'], $artist->profile['portfolio_links']);
-        $this->assertSame('gcash', $artist->payment_method);
-        $this->assertSame('Artist Name', $artist->payment_account_name);
-        $this->assertSame('+639111112222', $artist->payment_account_identifier);
-        $this->assertNotSame('+639111112222', $artist->getRawOriginal('payment_account_identifier'));
-        Storage::disk('local')->assertExists($artist->payment_qr_path);
+        $paymentSettings = $artist->paymentSettings;
+        $this->assertSame('gcash', $paymentSettings->payment_method);
+        $this->assertSame('Artist Name', $paymentSettings->payment_account_name);
+        $this->assertSame('+639111112222', $paymentSettings->payment_account_identifier);
+        $this->assertNotSame(
+            '+639111112222',
+            $paymentSettings->getRawOriginal('payment_account_identifier')
+        );
+        Storage::disk('local')->assertExists($paymentSettings->payment_qr_path);
+        $this->assertStringNotContainsString('+639111112222', $artist->toJson());
         Storage::disk('public')->assertExists($artist->profile['avatar']);
         Storage::disk('public')->assertExists($artist->profile['cover_image']);
+
+        $this->get(route('artist.profile.edit'))
+            ->assertOk()
+            ->assertSee(asset('storage/' . $artist->profile['avatar']))
+            ->assertSee(asset('storage/' . $artist->profile['cover_image']))
+            ->assertSee(route('artist.profile.payment-qr'), false);
+        $this->get(route('artist.profile.payment-qr'))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png');
+        $this->get(route('artists.show', $artist->id))
+            ->assertOk()
+            ->assertSee('/storage/' . $artist->profile['avatar'])
+            ->assertSee('/storage/' . $artist->profile['cover_image']);
     }
 
     public function test_profile_email_must_be_unique_except_for_the_current_user(): void
@@ -116,8 +164,7 @@ class ProfileEditingTest extends TestCase
         $this->makeUser('artist', 'taken@example.test', 'artist-1');
 
         $this->actingAs($client)->put(route('client.profile.update'), [
-            'first_name' => 'Client',
-            'last_name' => 'Person',
+            'name' => 'Client',
             'email' => 'taken@example.test',
         ])->assertSessionHasErrors('email');
     }

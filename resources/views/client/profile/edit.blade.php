@@ -31,7 +31,7 @@
             <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
                 <div class="profile-avatar" id="avatar-preview" aria-label="Avatar preview">
                     @if (!empty($profile['avatar']))
-                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($profile['avatar']) }}" alt="Profile photo">
+                        <img src="{{ asset('storage/' . ltrim($profile['avatar'], '/')) }}" alt="Profile photo">
                     @else
                         {{ strtoupper(substr($user->name, 0, 1)) }}
                     @endif
@@ -43,16 +43,8 @@
                 </div>
             </div>
             <div class="row g-3">
-                <div class="col-12 col-md-6"><label class="form-label" for="first-name">First name</label><input class="form-control @error('first_name') is-invalid @enderror" id="first-name" name="first_name" value="{{ old('first_name', $user->first_name) }}" maxlength="60" autocomplete="given-name" required>@error('first_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="middle-name">Middle name <span class="text-muted">(optional)</span></label><input class="form-control @error('middle_name') is-invalid @enderror" id="middle-name" name="middle_name" value="{{ old('middle_name', $user->middle_name) }}" maxlength="60" autocomplete="additional-name">@error('middle_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="last-name">Last name</label><input class="form-control @error('last_name') is-invalid @enderror" id="last-name" name="last_name" value="{{ old('last_name', $user->last_name) }}" maxlength="60" autocomplete="family-name" required>@error('last_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="name-extension">Name extension <span class="text-muted">(optional)</span></label><input class="form-control @error('name_extension') is-invalid @enderror" id="name-extension" name="name_extension" value="{{ old('name_extension', $user->name_extension) }}" placeholder="Jr., Sr., III">@error('name_extension')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="display-name">Display name</label><input class="form-control @error('display_name') is-invalid @enderror" id="display-name" name="display_name" value="{{ old('display_name', $user->display_name) }}" autocomplete="nickname"><div class="form-text text-muted">Shown publicly instead of your full legal name.</div>@error('display_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="birthdate">Birthdate <span class="text-muted">(optional)</span></label><input class="form-control @error('birthdate') is-invalid @enderror" id="birthdate" name="birthdate" type="date" value="{{ old('birthdate', $user->birthdate?->format('Y-m-d')) }}" max="{{ now()->subDay()->toDateString() }}" autocomplete="bday">@error('birthdate')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="gender">Gender <span class="text-muted">(optional)</span></label><select class="form-select @error('gender') is-invalid @enderror" id="gender" name="gender"><option value="">Prefer not to share</option><option value="female" @selected(old('gender', $user->gender) === 'female')>Female</option><option value="male" @selected(old('gender', $user->gender) === 'male')>Male</option><option value="non_binary" @selected(old('gender', $user->gender) === 'non_binary')>Non-binary</option><option value="self_describe" @selected(old('gender', $user->gender) === 'self_describe')>Self-describe</option><option value="prefer_not_to_say" @selected(old('gender', $user->gender) === 'prefer_not_to_say')>Prefer not to say</option></select>@error('gender')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-6"><label class="form-label" for="name">Full name</label><input class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name', $user->name) }}" autocomplete="name" required>@error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12 col-md-6"><label class="form-label" for="email">Email address</label><input class="form-control @error('email') is-invalid @enderror" id="email" name="email" type="email" value="{{ old('email', $user->email) }}" autocomplete="email" required>@error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="birthdate">Birthdate <span class="text-muted">(optional)</span></label><input class="form-control @error('birthdate') is-invalid @enderror" id="birthdate" name="birthdate" type="date" value="{{ old('birthdate', $user->birthdate?->format('Y-m-d')) }}" max="{{ now()->subDay()->toDateString() }}" autocomplete="bday">@error('birthdate')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="gender">Gender <span class="text-muted">(optional)</span></label><select class="form-select @error('gender') is-invalid @enderror" id="gender" name="gender"><option value="">Prefer not to share</option><option value="female" @selected(old('gender', $user->gender) === 'female')>Female</option><option value="male" @selected(old('gender', $user->gender) === 'male')>Male</option><option value="non_binary" @selected(old('gender', $user->gender) === 'non_binary')>Non-binary</option><option value="other" @selected(old('gender', $user->gender) === 'other')>Other</option><option value="prefer_not_to_say" @selected(old('gender', $user->gender) === 'prefer_not_to_say')>Prefer not to say</option></select>@error('gender')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12"><label class="form-label" for="bio">Bio</label><textarea class="form-control @error('bio') is-invalid @enderror" id="bio" name="bio" rows="3" maxlength="400">{{ old('bio', $profile['bio'] ?? '') }}</textarea>@error('bio')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12 col-md-6"><label class="form-label" for="contact">Contact number</label><input class="form-control @error('contact') is-invalid @enderror" id="contact" name="contact" type="tel" value="{{ old('contact', $profile['contact'] ?? '') }}" autocomplete="tel">@error('contact')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
             </div>
@@ -69,16 +61,6 @@
         </section>
 
         <section class="bg-studio-card rounded-4 p-3 p-md-4 mb-3">
-            <h2 class="h6 fw-bold mb-3">Change password</h2>
-            <div class="row g-3">
-                <div class="col-12 col-md-4"><label class="form-label" for="current-password">Current password</label><input class="form-control" id="current-password" name="current_password" type="password" autocomplete="current-password"></div>
-                <div class="col-12 col-md-4"><label class="form-label" for="new-password">New password</label><input class="form-control" id="new-password" name="new_password" type="password" minlength="8" autocomplete="new-password"></div>
-                <div class="col-12 col-md-4"><label class="form-label" for="confirm-password">Confirm new password</label><input class="form-control" id="confirm-password" name="new_password_confirmation" type="password" minlength="8" autocomplete="new-password"></div>
-            </div>
-            <div class="form-text text-muted">Leave the password fields blank to keep your current password.</div>
-        </section>
-
-        <section class="bg-studio-card rounded-4 p-3 p-md-4 mb-3">
             <h2 class="h6 fw-bold mb-3">Notifications</h2>
             <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="email-updates" name="notifications[artwork_updates]" value="1" @checked(old('notifications.artwork_updates', $profile['notifications']['artwork_updates'] ?? true))><label class="form-check-label" for="email-updates">Artwork and order updates</label></div>
             <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="newsletters" name="notifications[newsletters]" value="1" @checked(old('notifications.newsletters', $profile['notifications']['newsletters'] ?? false))><label class="form-check-label" for="newsletters">Studio news and announcements</label></div>
@@ -88,6 +70,36 @@
             <p class="text-muted small mb-0">Profile changes are saved to your LikhaSpace account.</p>
             <button class="btn btn-violet rounded-pill px-4" type="submit"><i class="bi bi-check2 me-1"></i>Save changes</button>
         </div>
+    </form>
+
+    <form method="POST" action="{{ route('password.update') }}" class="bg-studio-card rounded-4 p-3 p-md-4 mt-3">
+        @csrf
+        @method('PUT')
+        <h2 class="h5 fw-bold mb-2">Change password</h2>
+        <p class="text-muted small">Changing your password is separate from saving profile details. Enter your current password only here.</p>
+        @if (session('status') === 'password-updated')
+            <div class="alert alert-success" role="status">Password updated successfully.</div>
+        @endif
+        <div class="row g-3">
+            <div class="col-12 col-md-4">
+                <label class="form-label" for="client-current-password">Current password</label>
+                <input class="form-control @error('current_password', 'updatePassword') is-invalid @enderror" id="client-current-password" name="current_password" type="password" autocomplete="current-password" required>
+                @error('current_password', 'updatePassword')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label" for="client-new-password">New password</label>
+                <input class="form-control @error('password', 'updatePassword') is-invalid @enderror" id="client-new-password" name="password" type="password" minlength="8" autocomplete="new-password" required>
+                @error('password', 'updatePassword')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label" for="client-password-confirmation">Confirm new password</label>
+                <input class="form-control" id="client-password-confirmation" name="password_confirmation" type="password" minlength="8" autocomplete="new-password" required>
+            </div>
+        </div>
+        @if ($errors->updatePassword->any())
+            <div class="alert alert-danger mt-3 mb-0" role="alert">{{ $errors->updatePassword->first() }}</div>
+        @endif
+        <button type="submit" class="btn btn-outline-likha rounded-pill mt-3">Update password</button>
     </form>
 </div>
 @endsection

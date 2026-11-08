@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Artwork;
+use App\Models\ArtistPaymentSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -67,10 +68,12 @@ class PublicArtistProfileTest extends TestCase
             'status' => 'active',
             'profile' => ['bio' => 'Artist bio.'],
         ]);
-        $artist->payment_method = 'gcash';
-        $artist->payment_account_name = 'Private Recipient';
-        $artist->payment_account_identifier = '09123456789';
-        $artist->save();
+        ArtistPaymentSetting::create([
+            'user_id' => $artist->id,
+            'payment_method' => 'gcash',
+            'payment_account_name' => 'Private Recipient',
+            'payment_account_identifier' => '09123456789',
+        ]);
 
         $this->get(route('artists.show', $artist->id))
             ->assertOk()
@@ -90,31 +93,5 @@ class PublicArtistProfileTest extends TestCase
         ]);
 
         $this->assertSame('Mira Artist', $artist->name);
-    }
-
-    public function test_public_artist_profile_uses_display_name_and_hides_private_identity_details(): void
-    {
-        $artist = User::create([
-            'name' => 'Legal Name',
-            'first_name' => 'Legal',
-            'middle_name' => 'Private',
-            'last_name' => 'Name',
-            'display_name' => 'Studio Mira',
-            'birthdate' => '1990-01-02',
-            'gender' => 'female',
-            'email' => 'identity@example.test',
-            'password' => Hash::make('password'),
-            'role' => 'artist',
-            'artist_id' => 'identity-studio',
-            'status' => 'active',
-            'profile' => ['studio' => 'Identity Studio'],
-        ]);
-
-        $this->get(route('artists.show', $artist->id))
-            ->assertOk()
-            ->assertSee('Studio Mira')
-            ->assertDontSee('Legal Name')
-            ->assertDontSee('1990-01-02')
-            ->assertDontSee('female');
     }
 }
