@@ -23,7 +23,7 @@
                 <div class="col-12 col-md-6">
                     <label class="form-label" for="artist-avatar">Profile photo</label>
                     @if (!empty($artist['avatar']))
-                        <div class="mb-2"><img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($artist['avatar']) }}" alt="Current artist profile photo" class="rounded-circle" style="width: 84px; height: 84px; object-fit: cover"></div>
+                        <div class="mb-2"><img src="{{ asset('storage/' . ltrim($artist['avatar'], '/')) }}" alt="Current artist profile photo" class="rounded-circle" style="width: 84px; height: 84px; object-fit: cover"></div>
                     @endif
                     <input id="artist-avatar" name="avatar" type="file" class="form-control @error('avatar') is-invalid @enderror" accept="image/png,image/jpeg,image/webp">
                     @error('avatar')<div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -32,20 +32,13 @@
                 <div class="col-12 col-md-6">
                     <label class="form-label" for="artist-cover">Cover image</label>
                     @if (!empty($artist['cover_image']))
-                        <div class="mb-2"><img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($artist['cover_image']) }}" alt="Current studio cover image" class="rounded-3" style="width: 100%; max-height: 120px; object-fit: cover"></div>
+                        <div class="mb-2"><img src="{{ asset('storage/' . ltrim($artist['cover_image'], '/')) }}" alt="Current studio cover image" class="rounded-3" style="width: 100%; max-height: 120px; object-fit: cover"></div>
                     @endif
                     <input id="artist-cover" name="cover_image" type="file" class="form-control @error('cover_image') is-invalid @enderror" accept="image/png,image/jpeg,image/webp">
                     @error('cover_image')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     <div class="form-text text-muted">PNG, JPG, or WebP up to 8 MB.</div>
                 </div>
-                <div class="col-12 col-md-6"><label class="form-label" for="first-name">First name</label><input id="first-name" name="first_name" class="form-control @error('first_name') is-invalid @enderror" value="{{ old('first_name', $artist['first_name']) }}" maxlength="60" autocomplete="given-name" required>@error('first_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="middle-name">Middle name <span class="text-muted">(optional)</span></label><input id="middle-name" name="middle_name" class="form-control @error('middle_name') is-invalid @enderror" value="{{ old('middle_name', $artist['middle_name']) }}" maxlength="60" autocomplete="additional-name">@error('middle_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="last-name">Last name</label><input id="last-name" name="last_name" class="form-control @error('last_name') is-invalid @enderror" value="{{ old('last_name', $artist['last_name']) }}" maxlength="60" autocomplete="family-name" required>@error('last_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="name-extension">Name extension <span class="text-muted">(optional)</span></label><input id="name-extension" name="name_extension" class="form-control @error('name_extension') is-invalid @enderror" value="{{ old('name_extension', $artist['name_extension']) }}" placeholder="Jr., Sr., III">@error('name_extension')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="display-name">Display name</label><input id="display-name" name="display_name" class="form-control @error('display_name') is-invalid @enderror" value="{{ old('display_name', $artist['display_name']) }}" autocomplete="nickname"><div class="form-text text-muted">Shown publicly instead of your full legal name.</div>@error('display_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="birthdate">Birthdate <span class="text-muted">(optional)</span></label><input id="birthdate" name="birthdate" type="date" class="form-control @error('birthdate') is-invalid @enderror" value="{{ old('birthdate', $artist['birthdate']?->format('Y-m-d')) }}" max="{{ now()->subDay()->toDateString() }}" autocomplete="bday">@error('birthdate')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="gender">Gender <span class="text-muted">(optional)</span></label><select id="gender" name="gender" class="form-select @error('gender') is-invalid @enderror"><option value="">Prefer not to share</option><option value="female" @selected(old('gender', $artist['gender']) === 'female')>Female</option><option value="male" @selected(old('gender', $artist['gender']) === 'male')>Male</option><option value="non_binary" @selected(old('gender', $artist['gender']) === 'non_binary')>Non-binary</option><option value="other" @selected(old('gender', $artist['gender']) === 'other')>Other</option><option value="prefer_not_to_say" @selected(old('gender', $artist['gender']) === 'prefer_not_to_say')>Prefer not to say</option></select>@error('gender')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12"><p class="form-text text-muted mb-0">Your birthdate and gender are private account details and are not displayed on your public artist profile.</p></div>
+                <div class="col-12 col-md-6"><label class="form-label" for="artist-name">Artist or studio name</label><input id="artist-name" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $artist['name']) }}" required>@error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12 col-md-6"><label class="form-label" for="artist-email">Contact email</label><input id="artist-email" name="email" type="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email', $artist['email']) }}" required>@error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12 col-md-6"><label class="form-label" for="artist-contact">Contact number</label><input id="artist-contact" name="contact" type="tel" class="form-control @error('contact') is-invalid @enderror" value="{{ old('contact', $artist['contact'] ?? '') }}" autocomplete="tel">@error('contact')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12 col-md-6"><label class="form-label" for="artist-country">Primary culture</label><select id="artist-country" name="country" class="form-select">@foreach (['Philippines', 'Greece', 'Scotland', 'Japan'] as $country)<option value="{{ $country }}" @selected(old('country', $artist['country']) === $country)>{{ $country }}</option>@endforeach</select></div>
@@ -88,22 +81,7 @@
                     <div class="form-text text-muted">Example format only—enter an identifier that belongs to your own receiving account.</div>
                     @error('payment_account_identifier')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
-                <div class="col-12">
-                    <label class="form-label" for="payment-qr">Payment QR code (optional)</label>
-                    <input id="payment-qr" name="payment_qr" type="file" class="form-control @error('payment_qr') is-invalid @enderror" accept="image/png,image/jpeg,image/webp">
-                    @error('payment_qr')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                    <div class="form-text text-muted">{{ $artist['payment_qr_configured'] ? 'A private QR code is saved. Upload a replacement to change it.' : 'PNG, JPG, or WebP up to 5 MB. Only buyers with your order can view it.' }}</div>
-                </div>
             </div>
-        </section>
-        <section class="bg-studio-card rounded-4 p-3 p-md-4 mb-3">
-            <h2 class="h5 fw-bold mb-3">Change password</h2>
-            <div class="row g-3">
-                <div class="col-12 col-md-4"><label class="form-label" for="artist-current-password">Current password</label><input class="form-control" id="artist-current-password" name="current_password" type="password" autocomplete="current-password"></div>
-                <div class="col-12 col-md-4"><label class="form-label" for="artist-new-password">New password</label><input class="form-control" id="artist-new-password" name="new_password" type="password" minlength="8" autocomplete="new-password"></div>
-                <div class="col-12 col-md-4"><label class="form-label" for="artist-password-confirmation">Confirm new password</label><input class="form-control" id="artist-password-confirmation" name="new_password_confirmation" type="password" minlength="8" autocomplete="new-password"></div>
-            </div>
-            <div class="form-text text-muted">Leave the password fields blank to keep your current password.</div>
         </section>
         <section class="bg-studio-card rounded-4 p-3 p-md-4 mb-3">
             <h2 class="h5 fw-bold mb-3">Notification preferences</h2>
@@ -111,6 +89,62 @@
             <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="artist-sales-notice" name="notifications[sales_activity]" value="1" @checked(old('notifications.sales_activity', $artist['notifications']['sales_activity'] ?? true))><label class="form-check-label" for="artist-sales-notice">New order and sales activity</label></div>
         </section>
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3"><span class="text-muted small">Profile changes are saved to your LikhaSpace account.</span><button type="submit" class="btn btn-likha rounded-pill px-4"><i class="bi bi-check2 me-1"></i>Save profile</button></div>
+    </form>
+
+    <section class="bg-studio-card rounded-4 p-3 p-md-4 mt-3" aria-labelledby="payment-qr-heading">
+        <h2 id="payment-qr-heading" class="h5 fw-bold mb-2">Payment QR image</h2>
+        <p class="text-muted small">Save this separately from your profile. The image is private and is shown to buyers only during checkout and on their own order payment page.</p>
+        @if ($artist['payment_qr_configured'])
+            <div class="mb-3">
+                <img
+                    src="{{ route('artist.profile.payment-qr') }}"
+                    alt="Your saved private payment QR code"
+                    class="rounded-3 border bg-white p-2"
+                    style="width: 180px; height: 180px; object-fit: contain"
+                >
+            </div>
+        @endif
+        <form method="POST" action="{{ route('artist.profile.payment-qr.update') }}" enctype="multipart/form-data">
+            @csrf
+            <label class="form-label" for="payment-qr">Payment QR code</label>
+            <input id="payment-qr" name="payment_qr" type="file" class="form-control @error('payment_qr') is-invalid @enderror" accept="image/png,image/jpeg,image/webp" required>
+            @error('payment_qr')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            <div class="form-text text-muted mb-3">PNG, JPG, or WebP up to 5 MB. After choosing a file, click Save QR image.</div>
+            <img id="payment-qr-preview" alt="Selected payment QR preview" class="rounded-3 border bg-white p-2 mb-3 d-none" style="width: 180px; height: 180px; object-fit: contain">
+            <button type="submit" class="btn btn-likha rounded-pill px-4">
+                <i class="bi bi-cloud-arrow-up me-1" aria-hidden="true"></i>Save QR image
+            </button>
+        </form>
+    </section>
+
+    <form method="POST" action="{{ route('password.update') }}" class="bg-studio-card rounded-4 p-3 p-md-4 mt-3">
+        @csrf
+        @method('PUT')
+        <h2 class="h5 fw-bold mb-2">Change password</h2>
+        <p class="text-muted small">Changing your password is separate from saving profile details. Enter your current password only here.</p>
+        @if (session('status') === 'password-updated')
+            <div class="alert alert-success" role="status">Password updated successfully.</div>
+        @endif
+        <div class="row g-3">
+            <div class="col-12 col-md-4">
+                <label class="form-label" for="artist-current-password">Current password</label>
+                <input class="form-control @error('current_password', 'updatePassword') is-invalid @enderror" id="artist-current-password" name="current_password" type="password" autocomplete="current-password" required>
+                @error('current_password', 'updatePassword')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label" for="artist-new-password">New password</label>
+                <input class="form-control @error('password', 'updatePassword') is-invalid @enderror" id="artist-new-password" name="password" type="password" minlength="8" autocomplete="new-password" required>
+                @error('password', 'updatePassword')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label" for="artist-password-confirmation">Confirm new password</label>
+                <input class="form-control" id="artist-password-confirmation" name="password_confirmation" type="password" minlength="8" autocomplete="new-password" required>
+            </div>
+        </div>
+        @if ($errors->updatePassword->any())
+            <div class="alert alert-danger mt-3 mb-0" role="alert">{{ $errors->updatePassword->first() }}</div>
+        @endif
+        <button type="submit" class="btn btn-outline-likha rounded-pill mt-3">Update password</button>
     </form>
 </div>
 @endsection
@@ -128,6 +162,18 @@
         input.placeholder = 'https://your-portfolio.example';
         input.setAttribute('aria-label', 'Portfolio URL');
         container.append(input);
+    });
+
+    document.getElementById('payment-qr')?.addEventListener('change', event => {
+        const preview = document.getElementById('payment-qr-preview');
+        const file = event.target.files?.[0];
+        if (!file || !preview) {
+            preview?.classList.add('d-none');
+            return;
+        }
+
+        preview.src = URL.createObjectURL(file);
+        preview.classList.remove('d-none');
     });
 </script>
 @endpush

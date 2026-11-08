@@ -35,6 +35,7 @@ class Order extends Model
         'payment_submitted_at',
         'payment_review_note',
         'payment_reviewed_at',
+        'cancelled_at',
         'payment_recipient_name',
         'payment_recipient_identifier',
         'payment_qr_path',
@@ -50,6 +51,7 @@ class Order extends Model
             'artist_earnings' => 'decimal:2',
             'payment_submitted_at' => 'datetime',
             'payment_reviewed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
             'payment_recipient_name' => 'encrypted',
             'payment_recipient_identifier' => 'encrypted',
         ];
@@ -73,5 +75,11 @@ class Order extends Model
     public function calculatePlatformCommission(): float
     {
         return round((float) $this->total_amount * self::PLATFORM_COMMISSION_RATE, 2);
+    }
+
+    public function canBeCancelled(): bool
+    {
+        return ($this->payment_status === 'unpaid' && $this->status === 'Awaiting payment')
+            || ($this->payment_status === 'rejected' && $this->status === 'Payment rejected');
     }
 }

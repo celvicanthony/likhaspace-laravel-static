@@ -55,6 +55,7 @@
     }
 
     .art-card {
+        cursor: pointer;
         height: 100%;
         overflow: hidden;
         border: 1px solid var(--line);
@@ -273,7 +274,11 @@
 
         <div class="col artwork-item">
 
-            <article class="card art-card">
+            <article
+                class="card art-card"
+                data-detail-url="{{ route('artwork.show', $artwork->id) }}"
+                tabindex="0"
+                aria-label="View {{ $artwork->title }} details">
 
                 <div class="art-image">
 
@@ -331,7 +336,7 @@
                     <p class="art-artist">
                         By
                         @if ($artwork->artist)
-                            <a href="{{ route('artists.show', $artwork->artist->id) }}">{{ $artwork->artist->display_name }}</a>
+                            <a href="{{ route('artists.show', $artwork->artist->id) }}">{{ $artwork->artist->name }}</a>
                         @else
                             Unknown Artist
                         @endif
@@ -414,6 +419,20 @@
     const selectedCountryInput = document.getElementById('selectedCountry');
     const searchForm = document.querySelector('form[action="{{ route('explore') }}"]');
     const sortSelect = document.getElementById('artSort');
+
+    document.querySelectorAll('.art-card[data-detail-url]').forEach(card => {
+        card.addEventListener('click', event => {
+            if (event.target.closest('.favorite-form')) return;
+            event.preventDefault();
+            window.location.assign(card.dataset.detailUrl);
+        });
+
+        card.addEventListener('keydown', event => {
+            if (event.target !== card || !['Enter', ' '].includes(event.key)) return;
+            event.preventDefault();
+            window.location.assign(card.dataset.detailUrl);
+        });
+    });
 
     // Country filter selection
     categoryButtons.forEach(button => {

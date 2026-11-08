@@ -37,12 +37,12 @@
 
                     <div class="row g-3">
                         <div class="col-12 col-md-6">
-                            <label class="form-label" for="checkout-name">Name for your order</label>
+                            <label class="form-label" for="checkout-name">Full name</label>
                             <input
                                 id="checkout-name"
                                 class="form-control rounded-3 @error('name') is-invalid @enderror"
                                 name="name"
-                                value="{{ old('name', $buyer->display_name ?? '') }}"
+                                value="{{ old('name', $buyer->name ?? '') }}"
                                 autocomplete="name"
                                 required
                             >
@@ -71,16 +71,35 @@
                 </section>
 
                 <section class="bg-studio-card rounded-4 shadow-sm p-3 p-md-4">
-                    <h2 class="h5 fw-bold mb-2">Pay each artist directly</h2>
-                    <p class="text-muted small mb-3">Your cart is split into separate orders by artist. Each artist's private GCash or InstaPay details and QR code will appear only on that artist's order page.</p>
+                    <h2 class="h5 fw-bold mb-2">Artist payment details</h2>
+                    <p class="text-muted small mb-3">Your cart is split into separate orders by artist. Review each recipient and amount below. After placing your order, submit your payment proof on the order page.</p>
                     @foreach ($artists as $artist)
-                        <div class="d-flex align-items-center justify-content-between gap-2 border-top py-2">
-                            <span class="small">{{ $artist['name'] }}</span>
-                            @if ($artist['ready'])
-                                <span class="badge text-bg-success">Payment ready</span>
-                            @else
-                                <span class="badge text-bg-warning">Payment setup unavailable</span>
-                            @endif
+                        <div class="border-top py-3">
+                            <div class="d-flex align-items-start justify-content-between gap-3">
+                                <div>
+                                    <h3 class="h6 fw-bold mb-1">{{ $artist['name'] }}</h3>
+                                    @if ($artist['ready'])
+                                        <div class="small">{{ $artist['payment_method'] }}</div>
+                                        <div class="small">Recipient: {{ $artist['recipient_name'] }}</div>
+                                        <div class="small">Account: <span class="user-select-all">{{ $artist['recipient_identifier'] }}</span></div>
+                                        <div class="small fw-semibold mt-1">Amount for this artist: ₱{{ number_format($artist['subtotal'], 2) }}</div>
+                                    @else
+                                        <span class="badge text-bg-warning">Payment setup unavailable</span>
+                                    @endif
+                                </div>
+                                @if ($artist['qr_url'])
+                                    <img
+                                        src="{{ $artist['qr_url'] }}"
+                                        alt="Private payment QR code for {{ $artist['name'] }}"
+                                        class="rounded-3 border p-1 bg-white"
+                                        style="width: 144px; height: 144px; object-fit: contain"
+                                        loading="eager"
+                                        decoding="sync"
+                                    >
+                                @else
+                                    <div class="small text-muted">No QR image saved. Use the account details to send payment.</div>
+                                @endif
+                            </div>
                         </div>
                     @endforeach
                 </section>

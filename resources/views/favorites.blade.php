@@ -24,19 +24,25 @@
 
     @if (count($artworks))
         <section class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-3" aria-label="Favorite artworks">
-            @foreach ($artworks as $id => $artwork)
+            @foreach ($artworks as $artwork)
                 <article class="col">
                     <div class="favorite-card">
-                        <img class="favorite-image" src="https://images.unsplash.com/{{ $artwork['image'] }}?q=80&w=800&auto=format&fit=crop" alt="{{ $artwork['title'] }}" loading="lazy">
+                        @if ($artwork['image_url'])
+                            <img class="favorite-image" src="{{ $artwork['image_url'] }}" alt="{{ $artwork['title'] }}" loading="lazy">
+                        @else
+                            <div class="favorite-image d-flex align-items-center justify-content-center bg-light text-muted" role="img" aria-label="No artwork image available">
+                                <i class="bi bi-image fs-2" aria-hidden="true"></i>
+                            </div>
+                        @endif
                         <div class="p-3">
                             <span class="home-kicker">{{ $artwork['country'] }}</span>
                             <h2 class="h6 fw-bold mt-2 mb-1">{{ $artwork['title'] }}</h2>
                             <p class="favorite-meta mb-3">By {{ $artwork['artist'] }}</p>
                             <div class="d-flex align-items-center justify-content-between gap-2">
                                 <span class="fw-bold">₱{{ number_format($artwork['price'], 2) }}</span>
-                                <a href="{{ route('product.show', $id) }}" class="btn btn-sm btn-outline-likha rounded-pill">View artwork</a>
+                                <a href="{{ $artwork['detail_url'] }}" class="btn btn-sm btn-outline-likha rounded-pill">View artwork</a>
                             </div>
-                            <form method="POST" action="{{ route('favorites.toggle', $id) }}" class="mt-3">
+                            <form method="POST" action="{{ $artwork['remove_url'] }}" class="mt-3">
                                 @csrf
                                 <button type="submit" class="btn btn-sm btn-outline-likha rounded-pill w-100"><i class="bi bi-heartbreak me-1"></i>Remove from favorites</button>
                             </form>

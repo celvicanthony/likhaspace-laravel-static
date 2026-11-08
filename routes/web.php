@@ -75,7 +75,7 @@ Route::get('/artists/{artist}', function (int $artist) {
     $profile = array_replace(
         config("demo.artists.{$artist->artist_id}", []),
         $artist->profile ?? [],
-        ['name' => $artist->display_name]
+        ['name' => $artist->name]
     );
 
     $artworks = Artwork::where('user_id', $artist->id)
@@ -255,6 +255,31 @@ Route::match(['HEAD'], '/product/{id?}', function ($id = 1) {
 
 Route::middleware('role:client')->group(function () {
 
+    Route::get('/checkout/artists/{artist}/payment-qr', function (int $artist) {
+        $cartArtworkIds = array_keys(Session::get('cart', []));
+        abort_if($cartArtworkIds === [], 404);
+
+        $hasArtistArtworkInCart = Artwork::where('user_id', $artist)
+            ->where('status', 'approved')
+            ->whereIn('id', $cartArtworkIds)
+            ->exists();
+        abort_unless($hasArtistArtworkInCart, 404);
+
+        $paymentSettings = User::where('role', 'artist')
+            ->findOrFail($artist)
+            ->paymentSettings;
+        abort_unless(
+            filled($paymentSettings?->payment_qr_path)
+                && Storage::disk('local')->exists($paymentSettings->payment_qr_path),
+            404
+        );
+
+        $response = Storage::disk('local')->response($paymentSettings->payment_qr_path);
+        $response->headers->set('Cache-Control', 'private, no-store');
+
+        return $response;
+    })->whereNumber('artist')->name('checkout.artist-payment-qr');
+
     /*
     | Client Profile Routes
     */
@@ -304,7 +329,7 @@ Route::middleware('role:client')->group(function () {
     Route::get('/cart', function () {
         $cart = Session::get('cart', []);
 
-        $artworks = Artwork::with('artist')
+        $artworks = Artwork::with('artist.paymentSettings')
             ->where('status', 'approved')
             ->whereIn('id', array_keys($cart))
             ->get()
@@ -362,6 +387,19 @@ Route::middleware('role:client')->group(function () {
             ->with('status', 'Artwork added to your cart.');
     })->whereNumber('artwork')->name('cart.add');
 
+    Route::post('/cart/{artwork}/buy-now', function (int $artwork) {
+        $submission = Artwork::where('status', 'approved')
+            ->findOrFail($artwork);
+
+        $cart = Session::get('cart', []);
+        $cart[$submission->id] = max(1, (int) ($cart[$submission->id] ?? 0));
+        Session::put('cart', $cart);
+
+        return redirect()
+            ->route('checkout')
+            ->with('status', 'Artwork added. Review your order and complete checkout.');
+    })->whereNumber('artwork')->name('cart.buy-now');
+
 
     Route::patch('/cart/{artwork}', function (Request $request, int $artwork) {
         $validated = $request->validate([
@@ -405,15 +443,57 @@ Route::middleware('role:client')->group(function () {
     */
 
     Route::get('/favorites', function () {
-        $favoriteIds = Session::get('favorites', []);
+        $favoriteIds = collect(Session::get('favorites', []))
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values();
         $reviews = Session::get('artwork_reviews', []);
+        $artworks = [];
 
-        $artworks = collect(config('demo.artworks'))
-            ->only($favoriteIds)
-            ->filter(fn (array $artwork, int|string $id) =>
-                ($reviews[(string) $id] ?? $artwork['status']) === 'approved'
-            )
+        foreach (config('demo.artworks', []) as $id => $artwork) {
+            $id = (string) $id;
+            if (
+                ! $favoriteIds->contains($id)
+                || ($reviews[$id] ?? $artwork['status']) !== 'approved'
+            ) {
+                continue;
+            }
+
+            $artworks[] = [
+                'title' => $artwork['title'],
+                'country' => $artwork['country'],
+                'artist' => $artwork['artist'],
+                'price' => $artwork['price'],
+                'image_url' => 'https://images.unsplash.com/'.$artwork['image'].'?q=80&w=800&auto=format&fit=crop',
+                'detail_url' => route('product.show', $id),
+                'remove_url' => route('favorites.toggle', $id),
+            ];
+        }
+
+        $databaseArtworkIds = $favoriteIds
+            ->filter(fn (string $id) => str_starts_with($id, 'db-'))
+            ->map(fn (string $id) => substr($id, 3))
+            ->filter(fn (string $id) => ctype_digit($id))
             ->all();
+
+        $databaseArtworks = Artwork::with('artist')
+            ->where('status', 'approved')
+            ->whereIn('id', $databaseArtworkIds)
+            ->get();
+
+        foreach ($databaseArtworks as $artwork) {
+            $artworks[] = [
+                'title' => $artwork->title,
+                'country' => $artwork->country,
+                'artist' => $artwork->artist?->name ?? 'Unknown Artist',
+                'price' => $artwork->price,
+                'image_url' => filled($artwork->image_path)
+                    ? asset('storage/'.$artwork->image_path)
+                    : null,
+                'detail_url' => route('artwork.show', $artwork),
+                'remove_url' => route('artwork.favorite', $artwork),
+            ];
+        }
 
         return view('favorites', [
             'artworks' => $artworks,
@@ -484,7 +564,7 @@ Route::middleware('role:client')->group(function () {
                 ->withErrors(['cart' => 'Your cart is empty.']);
         }
 
-        $artworks = Artwork::with('artist')
+        $artworks = Artwork::with('artist.paymentSettings')
             ->where('status', 'approved')
             ->whereIn('id', array_keys($cart))
             ->get()
@@ -517,11 +597,28 @@ Route::middleware('role:client')->group(function () {
             ];
 
             if ($artwork->artist) {
+                $paymentSettings = $artwork->artist->paymentSettings;
+                $artistCheckout = $artists->get($artwork->artist->id, [
+                    'name' => $artwork->artist->name,
+                    'artist_id' => $artwork->artist->id,
+                    'ready' => filled($paymentSettings?->payment_method)
+                        && filled($paymentSettings?->payment_account_name)
+                        && filled($paymentSettings?->payment_account_identifier),
+                    'payment_method' => $paymentSettings?->payment_method,
+                    'recipient_name' => $paymentSettings?->payment_account_name,
+                    'recipient_identifier' => $paymentSettings?->payment_account_identifier,
+                    'qr_url' => filled($paymentSettings?->payment_qr_path)
+                        && Storage::disk('local')->exists($paymentSettings->payment_qr_path)
+                        ? route('checkout.artist-payment-qr', $artwork->artist->id)
+                        : null,
+                    'subtotal' => 0,
+                ]);
+                $artistCheckout['subtotal'] = round(
+                    $artistCheckout['subtotal'] + $price * $quantity,
+                    2
+                );
                 $artists->put($artwork->artist->id, [
-                    'name' => $artwork->artist->display_name,
-                    'ready' => filled($artwork->artist->payment_method)
-                        && filled($artwork->artist->payment_account_name)
-                        && filled($artwork->artist->payment_account_identifier),
+                    ...$artistCheckout,
                 ]);
             }
         }
@@ -565,7 +662,7 @@ Route::middleware('role:client')->group(function () {
 
         DB::transaction(function () use ($cart, $validated) {
 
-            $artworks = Artwork::with('artist')
+            $artworks = Artwork::with('artist.paymentSettings')
                 ->where('status', 'approved')
                 ->whereIn('id', array_keys($cart))
                 ->lockForUpdate()
@@ -606,11 +703,12 @@ Route::middleware('role:client')->group(function () {
 
             foreach (collect($orderItems)->groupBy(fn (array $item) => $item['artwork']->user_id) as $sellerId => $sellerItems) {
                 $seller = $sellerItems->first()['artwork']->artist;
+                $paymentSettings = $seller?->paymentSettings;
                 if (
                     ! $seller || $seller->role !== 'artist'
-                    || blank($seller->payment_method)
-                    || blank($seller->payment_account_name)
-                    || blank($seller->payment_account_identifier)
+                    || blank($paymentSettings?->payment_method)
+                    || blank($paymentSettings?->payment_account_name)
+                    || blank($paymentSettings?->payment_account_identifier)
                 ) {
                     throw ValidationException::withMessages([
                         'cart' => 'An artist has not completed their private payment setup. Please try again later.',
@@ -625,10 +723,10 @@ Route::middleware('role:client')->group(function () {
                     'buyer_name' => $validated['name'],
                     'buyer_email' => $validated['email'],
                     'shipping_address' => 'Digital delivery',
-                    'payment_method' => strtoupper($seller->payment_method),
-                    'payment_recipient_name' => $seller->payment_account_name,
-                    'payment_recipient_identifier' => $seller->payment_account_identifier,
-                    'payment_qr_path' => $seller->payment_qr_path,
+                    'payment_method' => strtoupper($paymentSettings->payment_method),
+                    'payment_recipient_name' => $paymentSettings->payment_account_name,
+                    'payment_recipient_identifier' => $paymentSettings->payment_account_identifier,
+                    'payment_qr_path' => $paymentSettings->payment_qr_path,
                     'payment_status' => 'unpaid',
                     'status' => 'Awaiting payment',
                     'total_amount' => $total,
@@ -639,7 +737,7 @@ Route::middleware('role:client')->group(function () {
                     $order->items()->create([
                         'artwork_id' => $artwork->id,
                         'artwork_title' => $artwork->title,
-                        'artist_name' => $seller->display_name,
+                        'artist_name' => $seller->name,
                         'quantity' => $item['quantity'],
                         'unit_price' => $item['unit_price'],
                         'subtotal' => $item['subtotal'],
@@ -680,8 +778,41 @@ Route::middleware('role:client')->group(function () {
 
         return view('transactions.show', [
             'order' => $order,
+            'paymentQrAvailable' => filled($order->payment_qr_path)
+                && Storage::disk('local')->exists($order->payment_qr_path),
         ]);
     })->where('order', 'LS-[A-Z0-9-]+')->name('transactions.show');
+
+    Route::post('/transactions/{order}/cancel', function (Request $request, string $order) {
+        $purchase = Order::where('user_id', $request->user()->id)
+            ->where('order_code', $order)
+            ->firstOrFail();
+
+        abort_unless($purchase->canBeCancelled(), 409, 'This order can no longer be cancelled. Contact the artist if you need help.');
+
+        $cancelled = Order::whereKey($purchase->id)
+            ->where(function ($query) {
+                $query->where(function ($unpaid) {
+                    $unpaid->where('payment_status', 'unpaid')
+                        ->where('status', 'Awaiting payment');
+                })->orWhere(function ($rejected) {
+                    $rejected->where('payment_status', 'rejected')
+                        ->where('status', 'Payment rejected');
+                });
+            })
+            ->update([
+                'payment_status' => 'cancelled',
+                'status' => 'Cancelled',
+                'cancelled_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        abort_unless($cancelled === 1, 409, 'This order can no longer be cancelled. Contact the artist if you need help.');
+
+        return redirect()
+            ->route('transactions.show', $purchase->order_code)
+            ->with('status', 'Your order was cancelled.');
+    })->where('order', 'LS-[A-Z0-9-]+')->name('transactions.cancel');
 
     Route::post('/transactions/{order}/items/{item}/review', function (
         Request $request,
@@ -746,10 +877,14 @@ Route::middleware('role:client')->group(function () {
         $purchase = Order::query()
             ->where('user_id', $request->user()->id)
             ->where('order_code', $order)->firstOrFail();
+        abort_if($purchase->payment_status === 'cancelled', 404);
         abort_unless($purchase->payment_qr_path, 404);
         abort_unless(Storage::disk('local')->exists($purchase->payment_qr_path), 404);
 
-        return Storage::disk('local')->response($purchase->payment_qr_path);
+        $response = Storage::disk('local')->response($purchase->payment_qr_path);
+        $response->headers->set('Cache-Control', 'private, no-store');
+
+        return $response;
     })->where('order', 'LS-[A-Z0-9-]+')->name('transactions.payment.qr');
 
     Route::get('/transactions/{order}/payment-proof', function (Request $request, string $order) {
@@ -785,6 +920,23 @@ Route::middleware('role:artist')
     ->prefix('artist')
     ->name('artist.')
     ->group(function () {
+
+        Route::get('/profile/payment-qr', function (Request $request) {
+            $paymentSettings = $request->user()->paymentSettings;
+            abort_unless(
+                filled($paymentSettings?->payment_qr_path)
+                    && Storage::disk('local')->exists($paymentSettings->payment_qr_path),
+                404
+            );
+
+            $response = Storage::disk('local')->response($paymentSettings->payment_qr_path);
+            $response->headers->set('Cache-Control', 'private, no-store');
+
+            return $response;
+        })->name('profile.payment-qr');
+
+        Route::post('/profile/payment-qr', [ProfileController::class, 'updateArtistPaymentQr'])
+            ->name('profile.payment-qr.update');
 
         Route::get('/orders', function () {
             $orders = Order::with(['customer', 'items'])
@@ -873,20 +1025,20 @@ Route::middleware('role:artist')
 
             $artist = array_replace(
                 [
-                    'name' => request()->user()->display_name,
+                    'name' => request()->user()->name,
                     'email' => request()->user()->email,
                     'country' => 'Philippines',
-                    'studio' => request()->user()->display_name,
+                    'studio' => request()->user()->name,
                     'bio' => '',
                     'sales' => 0,
                     'revenue' => 0,
                 ],
                 config("demo.artists.$artistId", []),
-                request()->user()->profile ?? [],
                 [
-                    'name' => request()->user()->display_name,
+                    'name' => request()->user()->name,
                     'email' => request()->user()->email,
-                ]
+                ],
+                request()->user()->profile ?? []
             );
 
             $artworks = collect(config('demo.artworks'))
