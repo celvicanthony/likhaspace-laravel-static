@@ -22,12 +22,24 @@
         Only mark a payment received after checking your GCash/InstaPay account. A screenshot is not proof that funds arrived. Delivery files are private and available only to the buyer after payment approval.
     </div>
 
+    <form method="GET" action="{{ route('artist.orders') }}" class="bg-studio-card rounded-4 p-3 mb-3">
+        <label class="form-label fw-semibold" for="artist-order-search">Search orders</label>
+        <div class="d-flex flex-wrap gap-2">
+            <input id="artist-order-search" class="form-control flex-grow-1" style="min-width: 220px" type="search" name="search" value="{{ $search }}" placeholder="Order number, buyer, artwork, or status">
+            <button class="btn btn-likha rounded-pill px-4" type="submit"><i class="bi bi-search me-1"></i>Search</button>
+            @if ($search !== '')
+                <a class="btn btn-outline-likha rounded-pill px-4" href="{{ route('artist.orders') }}">Clear</a>
+            @endif
+        </div>
+    </form>
+
     <section class="d-grid gap-3" aria-label="Artist orders">
         @forelse ($orders as $order)
             <article class="bg-studio-card rounded-4 p-3 p-md-4">
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
                     <div>
                         <h2 class="h5 fw-bold mb-1">Order {{ $order->order_code }}</h2>
+                        <div class="text-muted small">{{ $order->public_id }}</div>
                         <div class="text-muted small">Buyer: {{ $order->buyer_name }} · {{ $order->buyer_email }} · {{ $order->created_at->format('M j, Y g:i A') }}</div>
                     </div>
                     <div class="text-end">
@@ -64,7 +76,16 @@
                         <div class="text-muted small mb-2">Platform share (10%): ₱{{ number_format($order->platform_commission, 2) }} · Your earnings (90%): ₱{{ number_format($order->artist_earnings, 2) }}. These are tracked allocations, not automatic payouts.</div>
                     @endif
                     @if ($order->payment_status === 'submitted')
-                        <a class="btn btn-outline-likha btn-sm rounded-pill mb-3" href="{{ route('artist.orders.payment-proof', $order->order_code) }}" target="_blank" rel="noopener">View buyer's payment proof</a>
+                        <a class="d-inline-block mb-3" href="{{ request()->getBaseUrl() . route('artist.orders.payment-proof', $order->order_code, false) }}" target="_blank" rel="noopener">
+                            <img
+                                src="{{ request()->getBaseUrl() . route('artist.orders.payment-proof', $order->order_code, false) }}"
+                                alt="Payment proof submitted by {{ $order->buyer_name }}"
+                                class="rounded-3 border"
+                                style="display: block; width: min(100%, 360px); max-height: 360px; object-fit: contain; background: var(--surface-soft)"
+                                loading="lazy"
+                                decoding="async">
+                            <span class="btn btn-outline-likha btn-sm rounded-pill mt-2">Open full-size payment proof</span>
+                        </a>
                         @if ($order->payment_reference)
                             <div class="text-muted small mb-3">Reference: {{ $order->payment_reference }}</div>
                         @endif

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\ArtistPaymentQr;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,6 +25,7 @@ class ProfileController extends Controller
         return view('client.profile.edit', [
             'user' => $user,
             'profile' => $user->profile ?? [],
+            'identity' => $user->identityProfile()->firstOrNew(),
         ]);
     }
 
@@ -46,8 +48,7 @@ class ProfileController extends Controller
                 'payment_method' => $paymentSettings?->payment_method,
                 'payment_account_name' => $paymentSettings?->payment_account_name,
                 'payment_account_identifier' => $paymentSettings?->payment_account_identifier,
-                'payment_qr_configured' => filled($paymentSettings?->payment_qr_path)
-                    && Storage::disk('local')->exists($paymentSettings->payment_qr_path),
+                'payment_qr_configured' => ArtistPaymentQr::url($paymentSettings?->payment_qr_path) !== null,
             ],
             config("demo.artists.{$user->artist_id}", []),
             $user->profile ?? [],
@@ -56,11 +57,16 @@ class ProfileController extends Controller
                 'email' => $user->email,
             ]
         );
+        $artist['payment_qr_url'] = ArtistPaymentQr::url($paymentSettings?->payment_qr_path);
+        $artist['payment_qr_configured'] = $artist['payment_qr_url'] !== null;
         $artist['portfolio_links'] = is_array($artist['portfolio_links'] ?? null)
             ? $artist['portfolio_links']
             : [];
 
-        return view('artist.profile.edit', compact('artist'));
+        return view('artist.profile.edit', [
+            'artist' => $artist,
+            'identity' => $user->identityProfile()->firstOrNew(),
+        ]);
     }
 
     public function updateClient(Request $request): RedirectResponse
@@ -80,7 +86,9 @@ class ProfileController extends Controller
         abort_unless($user->role === $role, 403);
 
         $rules = [
-            'name' => ['required', 'string', 'max:120'],
+            'first_name' => ['required', 'string', 'max:80'],
+            'middle_name' => ['nullable', 'string', 'max:80'],
+            'last_name' => ['required', 'string', 'max:80'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->getKey())],
             'contact' => ['nullable', 'string', 'max:40'],
             'notifications' => ['nullable', 'array'],
@@ -90,6 +98,7 @@ class ProfileController extends Controller
 
         if ($role === 'artist') {
             $rules += [
+                'name' => ['required', 'string', 'max:120'],
                 'country' => ['required', Rule::in(['Philippines', 'Greece', 'Scotland', 'Japan'])],
                 'studio' => ['required', 'string', 'max:120'],
                 'bio' => ['required', 'string', 'max:500'],
@@ -113,7 +122,6 @@ class ProfileController extends Controller
         $validated = $request->validate($rules);
         $profile = $user->profile ?? [];
         $oldEmail = $user->email;
-        $user->name = $validated['name'];
         $user->email = $validated['email'];
         $paymentSettings = $role === 'artist'
             ? $user->paymentSettings()->firstOrNew()
@@ -121,6 +129,25 @@ class ProfileController extends Controller
 
         if ($oldEmail !== $user->email) {
             $user->email_verified_at = null;
+        }
+
+        $identity = $user->identityProfile()->firstOrNew();
+        $identity->first_name = trim($validated['first_name']);
+        $identity->middle_name = filled($validated['middle_name'] ?? null)
+            ? trim($validated['middle_name'])
+            : null;
+        $identity->last_name = trim($validated['last_name']);
+
+        if ($role === 'client') {
+            $nameParts = array_filter([
+                $identity->first_name,
+                $identity->middle_name,
+                $identity->last_name,
+                $identity->name_extension,
+            ], static fn (?string $part): bool => filled($part));
+            $user->name = implode(' ', $nameParts);
+        } else {
+            $user->name = $validated['name'];
         }
 
         $profileFields = $role === 'artist'
@@ -170,6 +197,8 @@ class ProfileController extends Controller
 
         $user->profile = $profile;
         $user->save();
+        $identity->user_id = $user->getKey();
+        $identity->save();
         $paymentSettings?->save();
         Storage::disk('public')->delete($replacedFiles);
 
@@ -194,14 +223,19 @@ class ProfileController extends Controller
 
         $paymentSettings = $user->paymentSettings()->firstOrNew();
         $oldPath = $paymentSettings->payment_qr_path;
-        $storedPath = $validated['payment_qr']->store("artist-payments/{$user->getKey()}", 'local');
-        if (! is_string($storedPath)) {
+        $storedPath = $validated['payment_qr']->store("artist-payments/{$user->getKey()}", 'public');
+        if (! is_string($storedPath) || ! Storage::disk('public')->exists($storedPath)) {
+            if (is_string($storedPath)) {
+                Storage::disk('public')->delete($storedPath);
+            }
             throw new RuntimeException('Unable to store the payment QR code.');
         }
 
-        $paymentSettings->payment_qr_path = $storedPath;
-        if (! $paymentSettings->save()) {
-            Storage::disk('local')->delete($storedPath);
+        $paymentSettings = $user->paymentSettings()->updateOrCreate([], [
+            'payment_qr_path' => $storedPath,
+        ]);
+        if ($paymentSettings->getRawOriginal('payment_qr_path') !== $storedPath) {
+            Storage::disk('public')->delete($storedPath);
             throw new RuntimeException('Unable to save the payment QR code settings.');
         }
 
@@ -211,6 +245,7 @@ class ProfileController extends Controller
             && ! Order::where('payment_qr_path', $oldPath)->exists()
         ) {
             Storage::disk('local')->delete($oldPath);
+            Storage::disk('public')->delete($oldPath);
         }
 
         return redirect()

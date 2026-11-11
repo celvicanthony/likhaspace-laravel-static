@@ -235,6 +235,7 @@
             <div class="sidebar-label">ARTIST STUDIO</div>
             <a class="side-link {{ request()->routeIs('artist.dashboard') ? 'active' : '' }}" href="{{ route('artist.dashboard') }}" aria-label="Studio Dashboard" title="Studio Dashboard"><i class="bi bi-speedometer2"></i><span class="side-link-text">Studio Dashboard</span></a>
             <a class="side-link {{ request()->routeIs('artist.orders') ? 'active' : '' }}" href="{{ route('artist.orders') }}" aria-label="Orders and payments" title="Orders and payments"><i class="bi bi-receipt"></i><span class="side-link-text">Orders &amp; payments</span></a>
+            <a class="side-link {{ request()->routeIs('artist.payout-details') ? 'active' : '' }}" href="{{ route('artist.payout-details') }}" aria-label="Platform payout details" title="Platform payout details"><i class="bi bi-bank"></i><span class="side-link-text">Platform payout details</span></a>
             <a class="side-link {{ request()->routeIs('artist.inventory') ? 'active' : '' }}" href="{{ route('artist.inventory') }}" aria-label="My Artwork" title="My Artwork"><i class="bi bi-palette"></i><span class="side-link-text">My Artwork</span></a>
             <a class="side-link {{ request()->routeIs('artist.profile') ? 'active' : '' }}" href="{{ route('artist.profile') }}" aria-label="Artist Profile" title="Artist Profile"><i class="bi bi-person-gear"></i><span class="side-link-text">Artist Profile</span></a>
             <div class="sidebar-spacer"></div>
@@ -244,6 +245,8 @@
             <a class="side-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}" aria-label="Overview" title="Overview"><i class="bi bi-speedometer2"></i><span class="side-link-text">Overview</span></a>
             <a class="side-link {{ request()->routeIs('admin.users') ? 'active' : '' }}" href="{{ route('admin.users') }}" aria-label="Manage Users" title="Manage Users"><i class="bi bi-people"></i><span class="side-link-text">Manage Users</span></a>
             <a class="side-link {{ request()->routeIs('admin.approvals') ? 'active' : '' }}" href="{{ route('admin.approvals') }}" aria-label="Artwork Approvals" title="Artwork Approvals"><i class="bi bi-patch-check"></i><span class="side-link-text">Artwork Approvals</span></a>
+            <a class="side-link {{ request()->routeIs('admin.commission-settlements*') ? 'active' : '' }}" href="{{ route('admin.commission-settlements') }}" aria-label="Commission settlements" title="Commission settlements"><i class="bi bi-cash-coin"></i><span class="side-link-text">Commission settlements @if ($pendingCommissionSettlements > 0)<span class="badge rounded-pill text-bg-danger ms-1">{{ $pendingCommissionSettlements }}</span>@endif</span></a>
+            <a class="side-link {{ request()->routeIs('admin.payout-details*') ? 'active' : '' }}" href="{{ route('admin.payout-details') }}" aria-label="Commission payout details" title="Commission payout details"><i class="bi bi-bank"></i><span class="side-link-text">Commission payout details</span></a>
             <div class="sidebar-spacer"></div>
             <a class="side-link" href="{{ route('explore') }}" aria-label="Marketplace" title="Marketplace"><i class="bi bi-shop"></i><span class="side-link-text">Marketplace</span></a>
         @elseif ($role === 'client')

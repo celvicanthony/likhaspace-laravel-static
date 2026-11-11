@@ -290,7 +290,8 @@ class OrderController extends Controller
         $orders = Order::with('items')
             ->where('user_id', $request->user()->id)
             ->latest()
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         return view('transactions.index', compact('orders'));
     }
@@ -320,14 +321,21 @@ class OrderController extends Controller
         $line = $purchase->items->firstWhere('id', $item);
         abort_unless($line, 404);
 
-        if ($line->artwork?->art_file_path && Storage::disk('local')->exists($line->artwork->art_file_path)) {
+        $isArtworkAsset = $line->artwork?->art_file_path
+            && Storage::disk('local')->exists($line->artwork->art_file_path);
+        if ($isArtworkAsset) {
             $path = $line->artwork->art_file_path;
-            $filename = Str::slug($line->artwork_title) . '.' . strtolower($line->artwork->file_format ?? pathinfo($path, PATHINFO_EXTENSION));
         } else {
             abort_unless($line->delivery_path && Storage::disk('local')->exists($line->delivery_path), 404);
             $path = $line->delivery_path;
-            $filename = $line->delivery_filename ?: basename($path);
         }
+
+        $mimeType = Storage::disk('local')->mimeType($path);
+        $extension = $this->downloadExtension($mimeType, $path, $line->delivery_filename);
+        $filenameStem = $isArtworkAsset
+            ? Str::slug($line->artwork_title)
+            : Str::slug(pathinfo($line->delivery_filename ?: basename($path), PATHINFO_FILENAME));
+        $filename = ($filenameStem !== '' ? $filenameStem : 'artwork').'.'.$extension;
 
         DB::transaction(function () use ($line, $purchase) {
             $line->forceFill(['downloaded_at' => now()])->save();
@@ -336,21 +344,62 @@ class OrderController extends Controller
             }
         });
 
-        return Storage::disk('local')->download($path, $filename);
+        return Storage::disk('local')->download(
+            $path,
+            $filename,
+            $mimeType ? ['Content-Type' => $mimeType] : []
+        );
+    }
+
+    private function downloadExtension(?string $mimeType, string $path, ?string $originalFilename): string
+    {
+        $extension = match ($mimeType) {
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'application/pdf' => 'pdf',
+            'application/zip', 'application/x-zip' => 'zip',
+            'image/vnd.adobe.photoshop', 'application/vnd.adobe.photoshop' => 'psd',
+            default => '',
+        };
+
+        if ($extension !== '') {
+            return $extension;
+        }
+
+        $extension = pathinfo($path, PATHINFO_EXTENSION)
+            ?: pathinfo($originalFilename ?? '', PATHINFO_EXTENSION);
+
+        return strtolower($extension ?: 'bin');
     }
 
     public function artistOrders(Request $request): View
     {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'string', 'max:80'],
+        ]);
+        $search = trim($validated['search'] ?? '');
         $query = Order::with(['customer', 'items'])
             ->where('seller_id', $request->user()->id);
-        $status = $request->query('status');
-        if (in_array($status, ['Pending', 'Accepted', 'Completed', 'Cancelled'], true)) {
+        $status = $validated['status'] ?? null;
+        if (filled($status)) {
             $query->where('status', $status);
+        }
+        if ($search !== '') {
+            $query->where(function ($orders) use ($search) {
+                $orders->where('order_code', 'like', "%{$search}%")
+                    ->orWhere('buyer_name', 'like', "%{$search}%")
+                    ->orWhere('buyer_email', 'like', "%{$search}%")
+                    ->orWhere('status', 'like', "%{$search}%")
+                    ->orWhereHas('items', fn ($items) => $items->where('artwork_title', 'like', "%{$search}%"));
+            });
         }
 
         return view('artist.orders', [
             'orders' => $query->with('items.artwork')->latest()->paginate(15)->withQueryString(),
             'selectedStatus' => $status,
+            'search' => $search,
         ]);
     }
 

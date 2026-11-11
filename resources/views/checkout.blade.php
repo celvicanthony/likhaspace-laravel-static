@@ -90,7 +90,7 @@
                                 @if ($artist['qr_url'])
                                     <img
                                         src="{{ $artist['qr_url'] }}"
-                                        alt="Private payment QR code for {{ $artist['name'] }}"
+                                        alt="Payment QR code for {{ $artist['name'] }}"
                                         class="rounded-3 border p-1 bg-white"
                                         style="width: 144px; height: 144px; object-fit: contain"
                                         loading="eager"

@@ -75,6 +75,16 @@
             <p class="text-muted small mb-0">
                 {{ $orders->total() }} recorded order{{ $orders->total() === 1 ? '' : 's' }} in the database.
             </p>
+            <form method="GET" action="{{ route('admin.transactions') }}" class="mt-3">
+                <label class="form-label fw-semibold" for="transaction-search">Search orders and sales</label>
+                <div class="d-flex flex-wrap gap-2">
+                    <input id="transaction-search" class="form-control flex-grow-1" style="min-width: 220px; max-width: 520px" type="search" name="search" value="{{ $search }}" placeholder="Order number, customer, artwork, or status">
+                    <button class="btn btn-likha rounded-pill px-4" type="submit"><i class="bi bi-search me-1"></i>Search</button>
+                    @if ($search !== '')
+                        <a class="btn btn-outline-likha rounded-pill px-4" href="{{ route('admin.transactions') }}">Clear</a>
+                    @endif
+                </div>
+            </form>
         </div>
 
         <div class="table-responsive">
@@ -98,6 +108,7 @@
                                 <span class="order-code-text">
                                     {{ $order->order_code }}
                                 </span>
+                                <div class="text-muted small">{{ $order->public_id }}</div>
                             </td>
 
                             <td>

@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Artwork;
 use App\Models\ArtistPaymentSetting;
+use App\Models\Artwork;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,10 +19,14 @@ class ArtistOrderFlowTest extends TestCase
     public function test_mixed_artist_cart_creates_separate_orders_for_each_artist(): void
     {
         Storage::fake('local');
+        Storage::fake('public');
         $buyer = $this->makeUser('client', 'buyer@example.test');
         $artistOne = $this->makeArtist('one@example.test', 'GCASH', 'Artist One');
         $artistTwo = $this->makeArtist('two@example.test', 'INSTAPAY', 'Artist Two');
-        Storage::disk('local')->put("artist-payments/{$artistOne->id}/sample.png", 'private-qr');
+        Storage::disk('local')->put(
+            "artist-payments/{$artistOne->id}/sample.png",
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=', true)
+        );
         $artistOne->paymentSettings()->updateOrCreate([], [
             'payment_qr_path' => "artist-payments/{$artistOne->id}/sample.png",
         ]);
@@ -36,7 +40,7 @@ class ArtistOrderFlowTest extends TestCase
             ->assertSee('+639123456789')
             ->assertSee('Artist One')
             ->assertSee('100.00')
-            ->assertSee(route('checkout.artist-payment-qr', $artistOne->id), false);
+            ->assertSee(asset("storage/artist-payments/{$artistOne->id}/sample.png"), false);
         $this->get(route('checkout.artist-payment-qr', $artistOne->id))
             ->assertOk()
             ->assertHeader('Cache-Control', 'no-store, private');
@@ -113,9 +117,10 @@ class ArtistOrderFlowTest extends TestCase
         ]);
     }
 
-    public function test_artist_uploaded_qr_is_saved_privately_and_shown_to_buyer(): void
+    public function test_artist_uploaded_qr_is_saved_publicly_and_shown_to_buyer(): void
     {
         Storage::fake('local');
+        Storage::fake('public');
         $artist = $this->makeUser('artist', 'artist@example.test');
         $buyer = $this->makeUser('client', 'buyer@example.test');
 
@@ -129,10 +134,15 @@ class ArtistOrderFlowTest extends TestCase
         $paymentSettings = ArtistPaymentSetting::where('user_id', $artist->id)->firstOrFail();
         $qrPath = $paymentSettings->payment_qr_path;
         $this->assertNotEmpty($qrPath);
-        Storage::disk('local')->assertExists($qrPath);
+        Storage::disk('public')->assertExists($qrPath);
+        Storage::disk('local')->assertMissing($qrPath);
         $this->get(route('artist.profile.payment-qr'))
             ->assertOk()
             ->assertHeader('Content-Type', 'image/png');
+        $this->get(route('artist.profile.edit'))
+            ->assertOk()
+            ->assertSee('Your saved private payment QR code')
+            ->assertSee('Upload your own payment QR image');
         $paymentSettings->update([
             'payment_method' => 'gcash',
             'payment_account_name' => 'Artist',
@@ -143,7 +153,7 @@ class ArtistOrderFlowTest extends TestCase
         $this->actingAs($buyer)->withSession(['cart' => [$artwork->id => 1]])
             ->get(route('checkout'))
             ->assertOk()
-            ->assertSee(route('checkout.artist-payment-qr', $artist->id), false);
+            ->assertSee(asset('storage/'.$qrPath), false);
         $this->get(route('checkout.artist-payment-qr', $artist->id))
             ->assertOk()
             ->assertHeader('Content-Type', 'image/png');
@@ -155,10 +165,50 @@ class ArtistOrderFlowTest extends TestCase
         $order = Order::where('user_id', $buyer->id)->firstOrFail();
         $this->get(route('transactions.show', $order->order_code))
             ->assertOk()
-            ->assertSee(route('transactions.payment.qr', $order->order_code), false);
+            ->assertSee(request()->getBaseUrl().route('transactions.payment.qr', $order->order_code, false), false);
         $this->get(route('transactions.payment.qr', $order->order_code))
             ->assertOk()
             ->assertHeader('Content-Type', 'image/png');
+    }
+
+    public function test_product_reviews_are_scoped_to_the_current_artwork(): void
+    {
+        $buyer = $this->makeUser('client', 'buyer@example.test');
+        $artist = $this->makeArtist('artist@example.test');
+        $firstArtwork = $this->makeArtwork($artist, 'First reviewed artwork');
+        $secondArtwork = $this->makeArtwork($artist, 'Second reviewed artwork');
+
+        foreach ([
+            [$firstArtwork, 'Review for the first artwork.', 5, 'LS-REVIEW-001'],
+            [$secondArtwork, 'Review for the second artwork.', 2, 'LS-REVIEW-002'],
+        ] as [$artwork, $comment, $rating, $orderCode]) {
+            $order = $this->makeOrder($buyer, $artist, $orderCode);
+            $item = $order->items()->create([
+                'artwork_id' => $artwork->id,
+                'artwork_title' => $artwork->title,
+                'artist_name' => $artist->name,
+                'quantity' => 1,
+                'unit_price' => 100,
+                'subtotal' => 100,
+            ]);
+            $item->review()->create([
+                'buyer_id' => $buyer->id,
+                'artwork_id' => $artwork->id,
+                'rating' => $rating,
+                'comment' => $comment,
+            ]);
+        }
+
+        $this->get(route('artwork.show', $firstArtwork))
+            ->assertOk()
+            ->assertSee('Review for the first artwork.')
+            ->assertDontSee('Review for the second artwork.')
+            ->assertSee('5.0/5');
+        $this->get(route('artwork.show', $secondArtwork))
+            ->assertOk()
+            ->assertSee('Review for the second artwork.')
+            ->assertDontSee('Review for the first artwork.')
+            ->assertSee('2.0/5');
     }
 
     public function test_explore_artwork_card_has_direct_product_navigation_without_capturing_heart(): void
@@ -177,6 +227,7 @@ class ArtistOrderFlowTest extends TestCase
     public function test_saved_qr_image_is_displayed_during_checkout_and_order_payment(): void
     {
         Storage::fake('local');
+        Storage::fake('public');
         $buyer = $this->makeUser('client', 'buyer@example.test');
         $artist = $this->makeArtist('artist@example.test');
         $qrFile = $this->fakePng('payment-qr.png');
@@ -187,13 +238,13 @@ class ArtistOrderFlowTest extends TestCase
         $this->actingAs($buyer)->withSession(['cart' => [$artwork->id => 1]])
             ->get(route('checkout'))
             ->assertOk()
-            ->assertSee(route('checkout.artist-payment-qr', $artist->id), false);
+            ->assertSee(asset('storage/'.$qrPath), false);
 
         $checkoutImage = $this->get(route('checkout.artist-payment-qr', $artist->id));
         $checkoutImage->assertOk()
             ->assertHeader('Cache-Control', 'no-store, private')
             ->assertHeader('Content-Type', 'image/png');
-        Storage::disk('local')->assertExists($qrPath);
+        Storage::disk('public')->assertExists($qrPath);
 
         $this->post(route('checkout.submit'), [
             'name' => $buyer->name,
@@ -203,7 +254,7 @@ class ArtistOrderFlowTest extends TestCase
 
         $this->get(route('transactions.show', $order->order_code))
             ->assertOk()
-            ->assertSee(route('transactions.payment.qr', $order->order_code), false);
+            ->assertSee(request()->getBaseUrl().route('transactions.payment.qr', $order->order_code, false), false);
         $orderImage = $this->get(route('transactions.payment.qr', $order->order_code));
         $orderImage->assertOk()
             ->assertHeader('Cache-Control', 'no-store, private')
@@ -213,6 +264,7 @@ class ArtistOrderFlowTest extends TestCase
     public function test_artist_can_preview_only_their_own_saved_payment_qr(): void
     {
         Storage::fake('local');
+        Storage::fake('public');
         $artist = $this->makeArtist('artist@example.test');
         $otherArtist = $this->makeArtist('other@example.test');
         $qrFile = $this->fakePng('payment-qr.png');
@@ -222,7 +274,9 @@ class ArtistOrderFlowTest extends TestCase
         $this->actingAs($artist)
             ->get(route('artist.profile.edit'))
             ->assertOk()
-            ->assertSee(route('artist.profile.payment-qr'), false);
+            ->assertSee(asset('storage/'.$qrPath), false);
+        Storage::disk('public')->assertExists($qrPath);
+        Storage::disk('local')->assertMissing($qrPath);
 
         $this->get(route('artist.profile.payment-qr'))
             ->assertOk()
@@ -301,7 +355,7 @@ class ArtistOrderFlowTest extends TestCase
             ->assertOk()
             ->assertSee('Edit artwork')
             ->assertSee('Original artwork')
-            ->assertSee(asset('storage/' . $artwork->image_path));
+            ->assertSee(asset('storage/'.$artwork->image_path));
 
         $oldImage = $artwork->image_path;
         $this->put(route('artist.inventory.update', $artwork), [
@@ -414,6 +468,25 @@ class ArtistOrderFlowTest extends TestCase
         $order->refresh();
         $this->assertSame('submitted', $order->payment_status);
         Storage::disk('local')->assertExists($order->payment_proof_path);
+        $proofContents = Storage::disk('local')->get($order->payment_proof_path);
+        $this->actingAs($artist)
+            ->get(route('artist.orders'))
+            ->assertOk()
+            ->assertSee(
+                'src="'.route('artist.orders.payment-proof', $order->order_code, false).'"',
+                false
+            );
+        $this->get(route('artist.orders.payment-proof', $order->order_code))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png')
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('Content-Type', 'image/png')
+            ->assertContent($proofContents);
+        $this->actingAs($buyer)
+            ->get(route('transactions.payment.proof', $order->order_code))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png')
+            ->assertContent($proofContents);
         $this->get(route('transactions.show', $order->order_code))->assertOk();
 
         $this->actingAs($artist)->post(route('artist.orders.payment-review', $order->order_code), [
@@ -483,6 +556,42 @@ class ArtistOrderFlowTest extends TestCase
         $otherBuyer = $this->makeUser('client', 'other@example.test');
         $this->actingAs($otherBuyer)->get(route('transactions.items.download', [$order->order_code, $item->id]))
             ->assertNotFound();
+    }
+
+    public function test_download_uses_the_uploaded_image_type_instead_of_a_stale_filename_extension(): void
+    {
+        Storage::fake('local');
+        $buyer = $this->makeUser('client', 'buyer@example.test');
+        $artist = $this->makeArtist('artist@example.test');
+        $order = $this->makeOrder($buyer, $artist, 'LS-DOWNLOAD-001');
+        $order->update([
+            'payment_status' => 'paid',
+            'status' => 'Ready for download',
+        ]);
+        $path = "artwork-deliveries/{$order->order_code}/original.png";
+        $png = base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=',
+            true
+        );
+        Storage::disk('local')->put($path, $png);
+        $item = $order->items()->create([
+            'artwork_title' => 'Downloaded artwork',
+            'artist_name' => $artist->name,
+            'quantity' => 1,
+            'unit_price' => 100,
+            'subtotal' => 100,
+            'delivery_path' => $path,
+            'delivery_filename' => 'downloaded-artwork.jpg',
+            'delivered_at' => now(),
+        ]);
+
+        $this->actingAs($buyer)
+            ->get(route('transactions.items.download', [$order->order_code, $item->id]))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'image/png')
+            ->assertHeader('Content-Disposition', 'attachment; filename=downloaded-artwork.png');
+
+        $this->assertSame('Completed', $order->fresh()->status);
     }
 
     public function test_artist_cannot_review_another_artists_payment(): void

@@ -4,18 +4,22 @@
 
 @push('styles')
 <style>
-    .artist-page { max-width: 1180px; margin: 0 auto; }
+    .artist-page { max-width: 1180px; margin: 0 auto; color: var(--studio-text); }
+    .artist-page h1, .artist-page h2, .artist-page h3 { color: var(--studio-text); }
+    .artist-page .text-muted, .artist-page .artist-bio { color: var(--studio-muted) !important; }
+    .artist-page .home-kicker { color: var(--studio-link); }
     .artist-cover { display: block; width: 100%; max-height: 300px; aspect-ratio: 4 / 1; object-fit: cover; border-radius: 22px; background: var(--surface-strong); }
-    .artist-intro { display: flex; align-items: flex-end; gap: 18px; margin: -42px 20px 24px; position: relative; }
+    .artist-intro { display: flex; align-items: flex-end; gap: 16px; margin: -42px 20px 24px; position: relative; }
     .artist-avatar { display: grid; width: 104px; height: 104px; flex: 0 0 104px; overflow: hidden; place-items: center; border: 4px solid var(--surface); border-radius: 50%; background: var(--surface-strong); color: var(--studio-link); font-size: 2rem; }
     .artist-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .artist-intro-copy { min-width: 0; flex: 1; padding: 14px 18px; border: 1px solid var(--studio-border); border-radius: 18px; background: var(--studio-card); box-shadow: var(--shadow); }
     .artist-bio { max-width: 760px; color: var(--muted); line-height: 1.7; }
-    .artist-art-card { height: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); box-shadow: var(--shadow); }
+    .artist-art-card { height: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); color: var(--studio-text); box-shadow: var(--shadow); }
     .artist-art-image { display: grid; min-height: 190px; place-items: center; overflow: hidden; background: var(--surface-strong); color: var(--studio-link); font-size: 3rem; }
     .artist-art-image img { width: 100%; height: 190px; object-fit: cover; }
     .artist-art-body { padding: 14px; }
     .artist-art-title { color: var(--ink); font-size: .96rem; font-weight: 700; }
-    @media (max-width: 575.98px) { .artist-cover { aspect-ratio: 2 / 1; } .artist-intro { align-items: flex-start; flex-direction: column; gap: 10px; margin: -32px 12px 20px; } .artist-avatar { width: 84px; height: 84px; flex-basis: 84px; } }
+    @media (max-width: 575.98px) { .artist-cover { aspect-ratio: 2 / 1; } .artist-intro { align-items: flex-start; flex-direction: column; gap: 10px; margin: -32px 12px 20px; } .artist-intro-copy { width: 100%; padding: 14px; } .artist-avatar { width: 84px; height: 84px; flex-basis: 84px; } }
 </style>
 @endpush
 
@@ -37,7 +41,7 @@
                 <i class="bi bi-person-fill"></i>
             @endif
         </span>
-        <div>
+        <div class="artist-intro-copy">
             <div class="home-kicker">{{ $profile['country'] ?? 'Independent artist' }}</div>
             <h1 class="h2 fw-bold mb-1">{{ $profile['studio'] ?? $artist->name }}</h1>
             @if (($profile['studio'] ?? $artist->name) !== $artist->name)

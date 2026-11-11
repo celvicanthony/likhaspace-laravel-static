@@ -4,9 +4,12 @@
 
 @push('styles')
 <style>
-    .artist-profile-page { max-width: 960px; margin: 0 auto; }
+    .artist-profile-page { max-width: 960px; margin: 0 auto; color: var(--studio-text); }
+    .artist-profile-page h1, .artist-profile-page h2, .artist-profile-page .form-label { color: var(--studio-text); }
+    .artist-profile-page .text-muted, .artist-profile-page .form-text { color: var(--studio-muted) !important; }
     .artist-profile-page .form-control, .artist-profile-page .form-select { border-color: var(--studio-border); background-color: var(--surface-soft); color: var(--studio-text); }
-    .artist-profile-page .form-control:focus, .artist-profile-page .form-select:focus { border-color: var(--studio-primary); }
+    .artist-profile-page .form-control::placeholder { color: var(--studio-muted); opacity: .8; }
+    .artist-profile-page .form-control:focus, .artist-profile-page .form-select:focus { border-color: var(--studio-primary); box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--studio-primary) 22%, transparent); }
 </style>
 @endpush
 
@@ -40,6 +43,10 @@
                 </div>
                 <div class="col-12 col-md-6"><label class="form-label" for="artist-name">Artist or studio name</label><input id="artist-name" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $artist['name']) }}" required>@error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12 col-md-6"><label class="form-label" for="artist-email">Contact email</label><input id="artist-email" name="email" type="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email', $artist['email']) }}" required>@error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12"><p class="small text-muted mb-0">Personal name for account records. It is separate from the public artist or studio name.</p></div>
+                <div class="col-12 col-md-4"><label class="form-label" for="artist-first-name">First name</label><input id="artist-first-name" name="first_name" class="form-control @error('first_name') is-invalid @enderror" value="{{ old('first_name', $identity->first_name) }}" autocomplete="given-name" required>@error('first_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-4"><label class="form-label" for="artist-middle-name">Middle name <span class="text-muted fw-normal">(optional)</span></label><input id="artist-middle-name" name="middle_name" class="form-control @error('middle_name') is-invalid @enderror" value="{{ old('middle_name', $identity->middle_name) }}" autocomplete="additional-name">@error('middle_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-4"><label class="form-label" for="artist-last-name">Last name</label><input id="artist-last-name" name="last_name" class="form-control @error('last_name') is-invalid @enderror" value="{{ old('last_name', $identity->last_name) }}" autocomplete="family-name" required>@error('last_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12 col-md-6"><label class="form-label" for="artist-contact">Contact number</label><input id="artist-contact" name="contact" type="tel" class="form-control @error('contact') is-invalid @enderror" value="{{ old('contact', $artist['contact'] ?? '') }}" autocomplete="tel">@error('contact')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12 col-md-6"><label class="form-label" for="artist-country">Primary culture</label><select id="artist-country" name="country" class="form-select">@foreach (['Philippines', 'Greece', 'Scotland', 'Japan'] as $country)<option value="{{ $country }}" @selected(old('country', $artist['country']) === $country)>{{ $country }}</option>@endforeach</select></div>
                 <div class="col-12 col-md-6"><label class="form-label" for="artist-studio">Studio name</label><input id="artist-studio" name="studio" class="form-control" value="{{ old('studio', $artist['studio']) }}" required></div>
@@ -93,16 +100,18 @@
 
     <section class="bg-studio-card rounded-4 p-3 p-md-4 mt-3" aria-labelledby="payment-qr-heading">
         <h2 id="payment-qr-heading" class="h5 fw-bold mb-2">Payment QR image</h2>
-        <p class="text-muted small">Save this separately from your profile. The image is private and is shown to buyers only during checkout and on their own order payment page.</p>
+        <p class="text-muted small">Upload your own payment QR image; LikhaSpace does not generate one. It is saved with your payment settings and shown to buyers during checkout and on their order payment page.</p>
         @if ($artist['payment_qr_configured'])
             <div class="mb-3">
                 <img
-                    src="{{ route('artist.profile.payment-qr') }}"
+                    src="{{ $artist['payment_qr_url'] }}"
                     alt="Your saved private payment QR code"
                     class="rounded-3 border bg-white p-2"
                     style="width: 180px; height: 180px; object-fit: contain"
                 >
             </div>
+        @else
+            <div class="text-muted small mb-3">No QR image uploaded yet.</div>
         @endif
         <form method="POST" action="{{ route('artist.profile.payment-qr.update') }}" enctype="multipart/form-data">
             @csrf

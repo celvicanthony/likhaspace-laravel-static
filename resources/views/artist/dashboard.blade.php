@@ -24,13 +24,13 @@
         <a href="{{ route('artist.inventory') }}" class="btn btn-likha rounded-pill"><i class="bi bi-plus-lg me-1"></i>Submit artwork</a>
     </header>
 
-    <section class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-3 mb-4" aria-label="Studio performance">
+    <section class="row row-cols-1 row-cols-sm-2 row-cols-xl-5 g-3 mb-4" aria-label="Studio performance">
         <div class="col"><article class="artist-metric h-100"><span>Artwork listings</span><strong>{{ $artworks->count() + $submissions->count() }}</strong></article></div>
         <div class="col"><article class="artist-metric h-100"><span>Sales</span><strong>{{ $artist['sales'] }}</strong></article></div>
         <div class="col"><article class="artist-metric h-100"><span>Artist earnings (90%)</span><strong>₱{{ number_format($artist['revenue'], 2) }}</strong><small class="artist-subtitle">Paid orders, after platform share</small></article></div>
         <div class="col"><article class="artist-metric h-100"><span>In review</span><strong>{{ $artworks->where('status', 'pending')->count() + $submissions->where('status', 'pending')->count() }}</strong></article></div>
+        <div class="col"><article class="artist-metric h-100"><span>Outstanding commission</span><strong>₱{{ number_format($artist['commission'], 2) }}</strong><small class="artist-subtitle">₱{{ number_format($artist['commission_received'], 2) }} confirmed by admin · <a href="{{ route('artist.payout-details') }}">View payments</a></small></article></div>
     </section>
-    <p class="text-muted small">Platform share (10%) tracked from your paid orders: ₱{{ number_format($artist['commission'], 2) }}. Payout settlement is handled separately.</p>
 
     <section class="artist-panel mb-4">
         <div class="artist-panel-header d-flex flex-wrap justify-content-between align-items-center gap-2">
