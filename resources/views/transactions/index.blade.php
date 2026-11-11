@@ -45,6 +45,17 @@
         Each artist order is paid separately. The artist reviews your private payment proof, then securely delivers your digital artwork.
     </div>
 
+    <form method="GET" action="{{ route('transactions') }}" class="bg-studio-card rounded-4 p-3 mb-3">
+        <label class="form-label fw-semibold" for="customer-order-search">Search your orders</label>
+        <div class="d-flex flex-wrap gap-2">
+            <input id="customer-order-search" class="form-control flex-grow-1" style="min-width: 220px" type="search" name="search" value="{{ $search }}" placeholder="Order number, artwork, or status">
+            <button class="btn btn-likha rounded-pill px-4" type="submit"><i class="bi bi-search me-1"></i>Search</button>
+            @if ($search !== '')
+                <a class="btn btn-outline-likha rounded-pill px-4" href="{{ route('transactions') }}">Clear</a>
+            @endif
+        </div>
+    </form>
+
     <section class="d-grid gap-3" aria-label="Order history">
         @forelse ($orders as $order)
             @php($firstItem = $order->items->first())

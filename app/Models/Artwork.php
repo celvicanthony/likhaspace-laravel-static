@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Support\HasPublicId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\User;
 
 class Artwork extends Model
 {
+    use HasPublicId;
+
     protected $fillable = [
         'user_id',
         'title',
@@ -47,5 +49,10 @@ class Artwork extends Model
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    protected function publicIdPrefix(): string
+    {
+        return 'ARTWORK';
     }
 }

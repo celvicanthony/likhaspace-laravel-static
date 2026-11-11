@@ -19,13 +19,46 @@ class RegistrationTest extends TestCase
     public function test_new_users_can_register(): void
     {
         $response = $this->post('/register', [
-            'name' => 'Test User',
+            'first_name' => 'Test',
+            'middle_name' => 'Middle',
+            'last_name' => 'User',
+            'name_extension' => 'Jr.',
             'email' => 'test@example.com',
+            'role' => 'client',
             'password' => 'password',
             'password_confirmation' => 'password',
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('explore'));
+        $this->assertDatabaseHas('users', [
+            'email' => 'test@example.com',
+            'name' => 'Test Middle User Jr.',
+        ]);
+        $this->assertDatabaseHas('user_profiles', [
+            'first_name' => 'Test',
+            'middle_name' => 'Middle',
+            'last_name' => 'User',
+            'name_extension' => 'Jr.',
+        ]);
+    }
+
+    public function test_middle_name_and_extension_are_optional_during_registration(): void
+    {
+        $this->post('/register', [
+            'first_name' => 'Ana',
+            'last_name' => 'Santos',
+            'email' => 'ana@example.com',
+            'role' => 'artist',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])->assertRedirect(route('artist.dashboard'));
+
+        $this->assertDatabaseHas('user_profiles', [
+            'first_name' => 'Ana',
+            'middle_name' => null,
+            'last_name' => 'Santos',
+            'name_extension' => null,
+        ]);
     }
 }

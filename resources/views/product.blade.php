@@ -45,7 +45,7 @@
     $reviewCount = $isDatabaseArtwork ? (int) $artwork->reviews_count : 0;
     $paidSales = $isDatabaseArtwork ? (int) ($artwork->paid_sales_count ?? 0) : 0;
     $artworkReviews = $isDatabaseArtwork
-        ? $artwork->reviews()->latest()->take(5)->get()
+        ? $artwork->reviews
         : collect();
 @endphp
 

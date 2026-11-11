@@ -45,7 +45,7 @@
                 <tbody id="users-table">
                     @foreach ($users as $user)
                         <tr data-user-row data-search="{{ strtolower($user['name'].' '.$user['email']) }}">
-                            <td><div class="d-flex align-items-center gap-3"><span class="user-avatar" aria-hidden="true">{{ strtoupper(substr($user['name'], 0, 1)) }}</span><div><div class="fw-semibold">{{ $user['name'] }}</div><div class="text-muted small">{{ $user['email'] }}</div></div></div></td>
+                            <td><div class="d-flex align-items-center gap-3"><span class="user-avatar" aria-hidden="true">{{ strtoupper(substr($user['name'], 0, 1)) }}</span><div><div class="fw-semibold">{{ $user['name'] }}</div><div class="text-muted small">{{ $user['public_id'] }} · {{ $user['email'] }}</div></div></div></td>
                             <td>
                                 @if ($user['role'] === 'admin')
                                     <span class="badge rounded-pill user-status">Admin</span>

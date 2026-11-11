@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Support\HasPublicId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
+    use HasPublicId;
+
     public const PLATFORM_COMMISSION_RATE = 0.10;
 
     protected $hidden = [
@@ -81,5 +84,10 @@ class Order extends Model
     {
         return ($this->payment_status === 'unpaid' && $this->status === 'Awaiting payment')
             || ($this->payment_status === 'rejected' && $this->status === 'Payment rejected');
+    }
+
+    protected function publicIdPrefix(): string
+    {
+        return 'ORDER';
     }
 }

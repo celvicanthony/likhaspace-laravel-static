@@ -287,6 +287,8 @@
                                             {{ $artwork->title }}
                                         </div>
 
+                                        <div class="text-muted small">{{ $artwork->public_id }}</div>
+
                                         <div class="artwork-description">
                                             {{ \Illuminate\Support\Str::limit($artwork->description, 65) }}
                                         </div>

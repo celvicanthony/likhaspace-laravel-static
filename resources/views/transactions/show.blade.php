@@ -9,7 +9,7 @@
     $currentStep = match ($order->status) {
         'Payment submitted' => 2,
         'Processing' => 3,
-        'Ready for download' => 4,
+        'Ready for download', 'Completed' => 4,
         default => 1,
     };
 @endphp
@@ -125,7 +125,7 @@
             <div class="transaction-detail"><span>{{ strtoupper($order->payment_method) }} account</span><span>{{ $order->payment_recipient_identifier }}</span></div>
             @if ($paymentQrAvailable)
                 <div class="mt-3">
-                    <img src="{{ route('transactions.payment.qr', $order->order_code) }}" alt="Private payment QR code for this order" class="img-fluid rounded-3 border" style="width: 220px; max-height: 220px; object-fit: contain" loading="eager" decoding="sync">
+                    <img src="{{ request()->getBaseUrl() . route('transactions.payment.qr', $order->order_code, false) }}" alt="Private payment QR code for this order" class="img-fluid rounded-3 border" style="width: 220px; max-height: 220px; object-fit: contain" loading="eager" decoding="sync">
                 </div>
             @else
                 <p class="small text-muted mt-3 mb-0">No QR image is available. Use the account details above to send payment.</p>
@@ -145,7 +145,7 @@
         </section>
     @elseif ($order->payment_status === 'submitted')
         <div class="alert alert-info rounded-4" role="status">Payment proof sent. Wait for {{ $order->seller?->name ?? 'the artist' }} to verify the funds before artwork delivery.</div>
-    @elseif ($order->payment_status === 'paid' && $order->status !== 'Ready for download')
+    @elseif ($order->payment_status === 'paid' && ! in_array($order->status, ['Ready for download', 'Completed'], true))
         <div class="alert alert-success rounded-4" role="status">The artist confirmed payment. They are preparing your digital artwork.</div>
     @endif
 
@@ -227,7 +227,7 @@
         </div>
     </div>
 
-    @if ($order->status === 'Ready for download')
+    @if (in_array($order->status, ['Ready for download', 'Completed'], true))
         <div class="alert bg-studio-card rounded-4 mt-3 mb-0" role="status">
             <i class="bi bi-download me-2 text-primary"></i>
             Your payment is confirmed and the artist has delivered your files. Download them below.

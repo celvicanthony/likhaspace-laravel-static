@@ -6,7 +6,11 @@
 <style>
     .studio-page { max-width: 960px; color: var(--studio-text); }
     .studio-page h1, .studio-page h2 { color: var(--studio-text); }
+    .studio-page .text-muted, .studio-page .form-text { color: var(--studio-muted) !important; }
+    .studio-page .form-label, .studio-page .form-check-label { color: var(--studio-text); font-weight: 600; }
     .studio-page .form-control, .studio-page .form-select { border-color: var(--studio-border); background-color: var(--surface-soft); color: var(--studio-text); }
+    .studio-page .form-control::placeholder { color: var(--studio-muted); opacity: .8; }
+    .studio-page .form-control:focus, .studio-page .form-select:focus { border-color: var(--studio-primary); box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--studio-primary) 22%, transparent); }
     .profile-avatar { display: grid; width: 88px; height: 88px; place-items: center; overflow: hidden; border: 2px solid var(--studio-accent); border-radius: 50%; background: var(--surface-soft); color: var(--studio-link); font-size: 1.8rem; }
     .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .studio-page .form-check-input:checked { border-color: var(--studio-primary); background-color: var(--studio-primary); }
@@ -43,8 +47,10 @@
                 </div>
             </div>
             <div class="row g-3">
-                <div class="col-12 col-md-6"><label class="form-label" for="name">Full name</label><input class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name', $user->name) }}" autocomplete="name" required>@error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="col-12 col-md-6"><label class="form-label" for="email">Email address</label><input class="form-control @error('email') is-invalid @enderror" id="email" name="email" type="email" value="{{ old('email', $user->email) }}" autocomplete="email" required>@error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-4"><label class="form-label" for="first-name">First name</label><input class="form-control @error('first_name') is-invalid @enderror" id="first-name" name="first_name" value="{{ old('first_name', $identity->first_name) }}" autocomplete="given-name" required>@error('first_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-4"><label class="form-label" for="middle-name">Middle name <span class="text-muted fw-normal">(optional)</span></label><input class="form-control @error('middle_name') is-invalid @enderror" id="middle-name" name="middle_name" value="{{ old('middle_name', $identity->middle_name) }}" autocomplete="additional-name">@error('middle_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12 col-md-4"><label class="form-label" for="last-name">Last name</label><input class="form-control @error('last_name') is-invalid @enderror" id="last-name" name="last_name" value="{{ old('last_name', $identity->last_name) }}" autocomplete="family-name" required>@error('last_name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+                <div class="col-12"><label class="form-label" for="email">Email address</label><input class="form-control @error('email') is-invalid @enderror" id="email" name="email" type="email" value="{{ old('email', $user->email) }}" autocomplete="email" required>@error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12"><label class="form-label" for="bio">Bio</label><textarea class="form-control @error('bio') is-invalid @enderror" id="bio" name="bio" rows="3" maxlength="400">{{ old('bio', $profile['bio'] ?? '') }}</textarea>@error('bio')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
                 <div class="col-12 col-md-6"><label class="form-label" for="contact">Contact number</label><input class="form-control @error('contact') is-invalid @enderror" id="contact" name="contact" type="tel" value="{{ old('contact', $profile['contact'] ?? '') }}" autocomplete="tel">@error('contact')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
             </div>

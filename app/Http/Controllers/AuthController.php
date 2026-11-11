@@ -60,24 +60,40 @@ class AuthController extends Controller
     public function register(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
+            'first_name' => ['required', 'string', 'max:80'],
+            'middle_name' => ['nullable', 'string', 'max:80'],
+            'last_name' => ['required', 'string', 'max:80'],
+            'name_extension' => ['nullable', 'string', 'max:20'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'role' => ['required', Rule::in(['client', 'artist'])],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
+        $nameParts = array_filter([
+            trim($validated['first_name']),
+            trim($validated['middle_name'] ?? ''),
+            trim($validated['last_name']),
+            trim($validated['name_extension'] ?? ''),
+        ], static fn (string $part): bool => $part !== '');
+        $fullName = implode(' ', $nameParts);
         $artistId = $validated['role'] === 'artist'
-            ? Str::slug($validated['name']).'-'.Str::lower(Str::random(8))
+            ? Str::slug($fullName).'-'.Str::lower(Str::random(8))
             : null;
 
         $user = User::create([
-            'name' => $validated['name'],
+            'name' => $fullName,
             'email' => $validated['email'],
             'role' => $validated['role'],
             'artist_id' => $artistId,
             'status' => 'active',
             'password' => $validated['password'],
             'profile' => [],
+        ]);
+        $user->identityProfile()->create([
+            'first_name' => trim($validated['first_name']),
+            'middle_name' => filled($validated['middle_name'] ?? null) ? trim($validated['middle_name']) : null,
+            'last_name' => trim($validated['last_name']),
+            'name_extension' => filled($validated['name_extension'] ?? null) ? trim($validated['name_extension']) : null,
         ]);
 
         Auth::login($user);

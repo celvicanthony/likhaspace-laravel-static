@@ -19,7 +19,10 @@ class ProfileEditingTest extends TestCase
         $this->actingAs($client)
             ->get(route('client.profile.edit'))
             ->assertOk()
-            ->assertViewIs('client.profile.edit');
+            ->assertViewIs('client.profile.edit')
+            ->assertSee('name="first_name"', false)
+            ->assertSee('name="middle_name"', false)
+            ->assertSee('name="last_name"', false);
 
         $this->get(route('artist.profile.edit'))->assertForbidden();
         $this->put(route('artist.profile.update'), [])->assertForbidden();
@@ -28,7 +31,10 @@ class ProfileEditingTest extends TestCase
         $this->actingAs($artist)
             ->get(route('artist.profile.edit'))
             ->assertOk()
-            ->assertViewIs('artist.profile.edit');
+            ->assertViewIs('artist.profile.edit')
+            ->assertSee('name="first_name"', false)
+            ->assertSee('name="middle_name"', false)
+            ->assertSee('name="last_name"', false);
 
         $this->get(route('client.profile.edit'))->assertForbidden();
         $this->put(route('client.profile.update'), [])->assertForbidden();
@@ -41,7 +47,9 @@ class ProfileEditingTest extends TestCase
         $this->actingAs($client);
 
         $this->put(route('client.profile.update'), [
-            'name' => 'Updated Client',
+            'first_name' => 'Updated',
+            'middle_name' => 'Test',
+            'last_name' => 'Client',
             'email' => $client->email,
             'contact' => '+63 900 000 0000',
             'address' => '18 Mabini Street',
@@ -53,7 +61,13 @@ class ProfileEditingTest extends TestCase
             ->assertSessionHas('status', 'Profile updated successfully!');
 
         $client->refresh();
-        $this->assertSame('Updated Client', $client->name);
+        $this->assertSame('Updated Test Client', $client->name);
+        $this->assertDatabaseHas('user_profiles', [
+            'user_id' => $client->id,
+            'first_name' => 'Updated',
+            'middle_name' => 'Test',
+            'last_name' => 'Client',
+        ]);
         $this->assertSame('18 Mabini Street', $client->profile['address']);
         $this->assertSame('+63 900 000 0000', $client->profile['contact']);
         Storage::disk('public')->assertExists($client->profile['avatar']);
@@ -69,7 +83,8 @@ class ProfileEditingTest extends TestCase
         $originalHash = $client->password;
 
         $this->actingAs($client)->put(route('client.profile.update'), [
-            'name' => 'Updated Client',
+            'first_name' => 'Updated',
+            'last_name' => 'Client',
             'email' => $client->email,
             'current_password' => 'incorrect-autofilled-password',
             'new_password' => 'accidental-new-password',
@@ -109,6 +124,9 @@ class ProfileEditingTest extends TestCase
 
         $this->actingAs($artist)->post(route('artist.profile.update'), [
             'name' => 'Artist Studio',
+            'first_name' => 'Artist',
+            'middle_name' => 'M',
+            'last_name' => 'Name',
             'email' => $artist->email,
             'contact' => '+63 911 000 0000',
             'country' => 'Philippines',
@@ -130,6 +148,12 @@ class ProfileEditingTest extends TestCase
 
         $artist->refresh();
         $this->assertSame('+63 911 000 0000', $artist->profile['contact']);
+        $this->assertDatabaseHas('user_profiles', [
+            'user_id' => $artist->id,
+            'first_name' => 'Artist',
+            'middle_name' => 'M',
+            'last_name' => 'Name',
+        ]);
         $this->assertSame(['https://portfolio.example.test'], $artist->profile['portfolio_links']);
         $paymentSettings = $artist->paymentSettings;
         $this->assertSame('gcash', $paymentSettings->payment_method);
@@ -139,7 +163,7 @@ class ProfileEditingTest extends TestCase
             '+639111112222',
             $paymentSettings->getRawOriginal('payment_account_identifier')
         );
-        Storage::disk('local')->assertExists($paymentSettings->payment_qr_path);
+        Storage::disk('public')->assertExists($paymentSettings->payment_qr_path);
         $this->assertStringNotContainsString('+639111112222', $artist->toJson());
         Storage::disk('public')->assertExists($artist->profile['avatar']);
         Storage::disk('public')->assertExists($artist->profile['cover_image']);
@@ -148,7 +172,7 @@ class ProfileEditingTest extends TestCase
             ->assertOk()
             ->assertSee(asset('storage/' . $artist->profile['avatar']))
             ->assertSee(asset('storage/' . $artist->profile['cover_image']))
-            ->assertSee(route('artist.profile.payment-qr'), false);
+            ->assertSee(asset('storage/'.$paymentSettings->payment_qr_path), false);
         $this->get(route('artist.profile.payment-qr'))
             ->assertOk()
             ->assertHeader('Content-Type', 'image/png');
@@ -164,7 +188,8 @@ class ProfileEditingTest extends TestCase
         $this->makeUser('artist', 'taken@example.test', 'artist-1');
 
         $this->actingAs($client)->put(route('client.profile.update'), [
-            'name' => 'Client',
+            'first_name' => 'Client',
+            'last_name' => 'Collector',
             'email' => 'taken@example.test',
         ])->assertSessionHasErrors('email');
     }
