@@ -1,4 +1,3 @@
-
 <?php
 
 use App\Http\Controllers\ArtworkController;
@@ -539,6 +538,12 @@ Route::middleware('role:client')->group(function () {
 
     Route::post('/profile', [ProfileController::class, 'updateClient'])
         ->name('profile.update');
+
+    Route::patch('/profile', [ProfileController::class, 'update'])
+        ->name('profile.patch');
+
+    Route::delete('/profile', [ProfileController::class, 'destroy'])
+        ->name('profile.destroy');
 
     /*
     |--------------------------------------------------------------------------

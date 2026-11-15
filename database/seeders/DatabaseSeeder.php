@@ -28,10 +28,15 @@ class DatabaseSeeder extends Seeder
             }
         }
 
+        $legacyAdmin = User::where('email', 'admin@likhaspace.ph')->first();
+        if ($legacyAdmin && ! User::where('email', 'celvicanthony.borromeo@lspu.edu.ph')->exists()) {
+            $legacyAdmin->update(['email' => 'celvicanthony.borromeo@lspu.edu.ph']);
+        }
+
         User::query()->where('role', 'admin')->update(['role' => 'client']);
 
         User::updateOrCreate(
-            ['email' => 'admin@likhaspace.ph'],
+            ['email' => 'celvicanthony.borromeo@lspu.edu.ph'],
             ['name' => 'LikhaSpace Admin', 'role' => 'admin', 'artist_id' => null, 'status' => 'active', 'password' => config('demo.credentials.admin_password')]
         );
 
@@ -61,8 +66,13 @@ class DatabaseSeeder extends Seeder
             );
         }
 
+        $legacyClient = User::where('email', 'client@likhaspace.ph')->first();
+        if ($legacyClient && ! User::where('email', 'sevyreo@gmail.com')->exists()) {
+            $legacyClient->update(['email' => 'sevyreo@gmail.com']);
+        }
+
         foreach ([
-            ['name' => 'LikhaSpace Client', 'email' => 'client@likhaspace.ph', 'password' => config('demo.credentials.client_password')],
+            ['name' => 'LikhaSpace Client', 'email' => 'sevyreo@gmail.com', 'password' => config('demo.credentials.client_password')],
             ['name' => 'Luna Reyes', 'email' => 'luna@likhaspace.test'],
             ['name' => 'Andre Cruz', 'email' => 'andre@likhaspace.test'],
             ['name' => 'Tala Garcia', 'email' => 'tala@likhaspace.test'],

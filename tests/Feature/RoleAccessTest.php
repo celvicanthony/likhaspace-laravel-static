@@ -58,10 +58,10 @@ class RoleAccessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $this->post(route('login.submit'), [
-            'email' => 'client@likhaspace.ph',
+            'email' => 'sevyreo@gmail.com',
             'password' => 'test-client-password',
         ])->assertRedirect(route('explore'));
-        $this->assertAuthenticatedAs(User::where('email', 'client@likhaspace.ph')->first());
+        $this->assertAuthenticatedAs(User::where('email', 'sevyreo@gmail.com')->first());
 
         $this->post(route('logout'))->assertRedirect(route('home'));
         $this->post(route('login.submit'), [
@@ -72,17 +72,38 @@ class RoleAccessTest extends TestCase
 
         $this->post(route('logout'));
         $this->post(route('login.submit'), [
-            'email' => 'admin@likhaspace.ph',
+            'email' => 'celvicanthony.borromeo@lspu.edu.ph',
             'password' => 'test-admin-password',
         ])->assertRedirect(route('admin.dashboard'));
-        $this->assertAuthenticatedAs(User::where('email', 'admin@likhaspace.ph')->first());
+        $this->assertAuthenticatedAs(User::where('email', 'celvicanthony.borromeo@lspu.edu.ph')->first());
 
         $this->post(route('logout'));
         $this->post(route('admin.login.submit'), [
-            'email' => 'admin@likhaspace.ph',
+            'email' => 'celvicanthony.borromeo@lspu.edu.ph',
             'password' => 'test-admin-password',
         ])->assertRedirect(route('admin.dashboard'));
-        $this->assertAuthenticatedAs(User::where('email', 'admin@likhaspace.ph')->first());
+        $this->assertAuthenticatedAs(User::where('email', 'celvicanthony.borromeo@lspu.edu.ph')->first());
+    }
+
+    public function test_seeding_updates_existing_default_account_emails(): void
+    {
+        $admin = $this->makeUser('admin', null, 'admin@likhaspace.ph');
+        $client = $this->makeUser('client', null, 'client@likhaspace.ph');
+
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $admin->id,
+            'email' => 'celvicanthony.borromeo@lspu.edu.ph',
+            'role' => 'admin',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'id' => $client->id,
+            'email' => 'sevyreo@gmail.com',
+            'role' => 'client',
+        ]);
+        $this->assertDatabaseMissing('users', ['email' => 'admin@likhaspace.ph']);
+        $this->assertDatabaseMissing('users', ['email' => 'client@likhaspace.ph']);
     }
 
     public function test_public_registration_creates_only_client_or_artist_accounts(): void
@@ -127,6 +148,13 @@ class RoleAccessTest extends TestCase
         $client = $this->makeUser('client', null, 'client@example.test');
         $artist = $this->makeUser('artist', 'heather-mcrae', 'artist@example.test');
         $artist->update(['name' => 'Heather McRae']);
+        $artist->artworks()->create([
+            'title' => 'The Kelpie of Loch Ness',
+            'country' => 'Scotland',
+            'price' => 1850,
+            'image_path' => 'artworks/kelpie.png',
+            'status' => 'pending',
+        ]);
 
         $this->actingAs($client)->get(route('explore'))->assertOk()->assertSee('My Favorites');
         $this->get(route('artist.dashboard'))->assertForbidden();
@@ -160,10 +188,13 @@ class RoleAccessTest extends TestCase
             'province' => 'Metro Manila',
             'postal' => '1100',
             'notifications' => ['artwork_updates' => '1'],
-            'current_password' => 'oldpassword',
-            'new_password' => 'newpassword123',
-            'new_password_confirmation' => 'newpassword123',
         ])->assertRedirect(route('client.profile.edit'))->assertSessionHas('status');
+
+        $this->from(route('client.profile.edit'))->put(route('password.update'), [
+            'current_password' => 'oldpassword',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ])->assertRedirect(route('client.profile.edit'))->assertSessionHas('status', 'password-updated');
 
         $client->refresh();
         $this->assertSame('Updated Test Collector', $client->name);
@@ -189,10 +220,13 @@ class RoleAccessTest extends TestCase
             'studio' => 'Loch and Light',
             'bio' => 'Updated studio bio.',
             'notifications' => ['sales_activity' => '1'],
-            'current_password' => 'artist-old-pass',
-            'new_password' => 'artist-new-pass',
-            'new_password_confirmation' => 'artist-new-pass',
         ])->assertRedirect(route('artist.profile.edit'))->assertSessionHas('status');
+
+        $this->from(route('artist.profile.edit'))->put(route('password.update'), [
+            'current_password' => 'artist-old-pass',
+            'password' => 'artist-new-pass',
+            'password_confirmation' => 'artist-new-pass',
+        ])->assertRedirect(route('artist.profile.edit'))->assertSessionHas('status', 'password-updated');
 
         $artist->refresh();
         $this->assertSame('Heather Studio', $artist->name);
@@ -262,26 +296,25 @@ class RoleAccessTest extends TestCase
 
     public function test_artist_submissions_are_still_scoped_and_admin_review_routes_work(): void
     {
-        Storage::fake('local');
+        Storage::fake('public');
         $artist = $this->makeUser('artist', 'heather-mcrae', 'submission@example.test');
         $admin = $this->makeUser('admin', null, 'review-admin@example.test');
 
-        $submissionId = null;
         $this->actingAs($artist)->post(route('artist.inventory.submit'), [
             'title' => 'Moonlit Selkie',
             'country' => 'Scotland',
             'price' => '1850',
             'artwork_file' => UploadedFile::fake()->create('selkie.png', 10, 'image/png'),
-        ])->assertRedirect(route('artist.inventory'))
-            ->assertSessionHas('artist_submissions', function (array $submissions) use (&$submissionId, $artist) {
-                $submissionId = array_key_first($submissions);
+        ])->assertRedirect(route('artist.inventory'));
 
-                return $submissions[$submissionId]['artist_id'] === $artist->artist_id
-                    && $submissions[$submissionId]['status'] === 'pending';
-            });
+        $artwork = \App\Models\Artwork::where('user_id', $artist->id)->where('title', 'Moonlit Selkie')->firstOrFail();
+        $this->assertSame('pending', $artwork->status);
 
-        $this->actingAs($admin)->post(route('admin.approvals.action', $submissionId), ['status' => 'approved'])
-            ->assertSessionHas('artwork_reviews.'.$submissionId, 'approved');
+        $this->actingAs($admin)->withSession(['admin_clearance_at' => now()->timestamp])
+            ->post(route('admin.approvals.action', $artwork->id), ['status' => 'approved'])
+            ->assertSessionHas('status', 'Artwork approved.');
+
+        $this->assertSame('approved', $artwork->fresh()->status);
     }
 
     private function makeUser(string $role, ?string $artistId, string $email, string $password = 'password'): User
