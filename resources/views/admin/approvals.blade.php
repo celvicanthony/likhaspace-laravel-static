@@ -155,6 +155,12 @@
                                     </div>
                                 @endif
 
+                                @if (!empty($artwork['topics']))
+                                    <small class="d-block text-muted ms-4">
+                                        Topics: {{ implode(', ', $artwork['topics']) }}
+                                    </small>
+                                @endif
+
                                 @if (!empty($artwork['file_name']))
                                     <small class="d-block text-muted ms-4">
                                         {{ $artwork['file_name'] }}

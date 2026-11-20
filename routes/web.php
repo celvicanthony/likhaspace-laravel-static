@@ -9,6 +9,7 @@ use App\Http\Controllers\PlatformPayoutController;
 use App\Http\Controllers\ProfileController;
 use App\Models\ArtistCommissionPayment;
 use App\Models\Artwork;
+use App\Models\ArtworkTopic;
 use App\Models\ArtworkReview;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -102,7 +103,7 @@ Route::get('/artists/{artist}', function (int $artist) {
 })->whereNumber('artist')->name('artists.show');
 
 Route::get('/explore', function () {
-    $query = Artwork::with('artist')
+    $query = Artwork::with(['artist', 'topics'])
         ->withAvg('reviews', 'rating')
         ->withCount('reviews')
         ->withSum([
@@ -120,6 +121,7 @@ Route::get('/explore', function () {
             $q->where('title', 'like', "%{$search}%")
                 ->orWhere('description', 'like', "%{$search}%")
                 ->orWhere('country', 'like', "%{$search}%")
+                ->orWhereHas('topics', fn ($topics) => $topics->where('name', 'like', "%{$search}%"))
                 ->orWhereHas('artist', function ($artistQuery) use ($search) {
                     $artistQuery->where('name', 'like', "%{$search}%");
                 });
@@ -133,6 +135,20 @@ Route::get('/explore', function () {
         $query->where('country', $selectedCountry);
     } else {
         $selectedCountry = 'all';
+    }
+
+    $topics = ArtworkTopic::whereHas('artwork', fn ($artworks) => $artworks->where('status', 'approved'))
+        ->orderBy('name')
+        ->get(['name', 'normalized_name'])
+        ->unique('normalized_name')
+        ->values();
+    $requestedTopic = request('topic');
+    $selectedTopic = is_string($requestedTopic) ? Str::lower(trim($requestedTopic)) : 'all';
+
+    if ($selectedTopic !== 'all' && $topics->contains('normalized_name', $selectedTopic)) {
+        $query->whereHas('topics', fn ($artworkTopics) => $artworkTopics->where('normalized_name', $selectedTopic));
+    } else {
+        $selectedTopic = 'all';
     }
 
     $sort = request('sort', 'newest');
@@ -162,6 +178,8 @@ Route::get('/explore', function () {
         'artworks' => $artworks,
         'countries' => $countries,
         'selectedCountry' => $selectedCountry,
+        'topics' => $topics,
+        'selectedTopic' => $selectedTopic,
         'search' => request('search', ''),
         'sort' => $sort,
         'favorites' => Session::get('favorites', []),
@@ -212,6 +230,7 @@ Route::get('/product/{id?}', function ($id = 1) {
 Route::get('/artwork/{artwork}', function (int $artwork) {
     $artwork = Artwork::with([
         'artist',
+        'topics',
         'reviews' => fn ($reviews) => $reviews->latest()->limit(5),
     ])
         ->withAvg('reviews', 'rating')
@@ -1273,7 +1292,7 @@ Route::middleware('role:admin')
             */
 
             Route::get('/approvals', function () {
-                $artworks = Artwork::with('artist')
+                $artworks = Artwork::with(['artist', 'topics'])
                     ->latest()
                     ->get()
                     ->map(function (Artwork $artwork) {
@@ -1283,6 +1302,7 @@ Route::middleware('role:admin')
                             'artist' => $artwork->artist?->name ?? 'Unknown Artist',
                             'title' => $artwork->title,
                             'country' => $artwork->country,
+                            'topics' => $artwork->topics->pluck('name')->all(),
                             'description' => $artwork->description,
                             'price' => $artwork->price,
                             'status' => $artwork->status,

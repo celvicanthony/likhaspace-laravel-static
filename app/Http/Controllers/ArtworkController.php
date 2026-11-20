@@ -4,13 +4,15 @@ namespace App\Http\Controllers;
 use App\Models\Artwork;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class ArtworkController extends Controller
 {
 
     public function index()
 {
-    $artworks = Artwork::where('user_id', auth()->id())
+    $artworks = Artwork::with('topics')->where('user_id', auth()->id())
         ->latest()
         ->get();
 
@@ -23,6 +25,7 @@ class ArtworkController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:120'],
             'country' => ['required', 'in:Philippines,Greece,Scotland,Japan'],
+            'topics' => ['nullable', 'string', 'max:400'],
             'description' => ['nullable', 'string', 'max:2000'],
             'price' => ['required', 'numeric', 'min:1', 'max:1000000'],
             'artwork_file' => [
@@ -32,11 +35,12 @@ class ArtworkController extends Controller
                 'max:5120'
             ],
         ]);
+        $topics = $this->parseTopics($validated['topics'] ?? '');
 
         $imagePath = $request->file('artwork_file')
             ->store('artworks', 'public');
 
-        auth()->user()->artworks()->create([
+        $artwork = auth()->user()->artworks()->create([
             'title' => $validated['title'],
             'country' => $validated['country'],
             'description' => $validated['description'] ?? null,
@@ -44,6 +48,7 @@ class ArtworkController extends Controller
             'image_path' => $imagePath,
             'status' => 'pending',
         ]);
+        $this->replaceTopics($artwork, $topics);
 
         return redirect()
             ->route('artist.inventory')
@@ -54,6 +59,8 @@ class ArtworkController extends Controller
     public function edit(Artwork $artwork)
     {
         $this->authorizeOwnership($artwork);
+
+        $artwork->load('topics');
 
         return view('artist.edit-artwork', compact('artwork'));
     }
@@ -66,6 +73,7 @@ class ArtworkController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:120'],
             'country' => ['required', 'in:Philippines,Greece,Scotland,Japan'],
+            'topics' => ['nullable', 'string', 'max:400'],
             'description' => ['nullable', 'string', 'max:2000'],
             'price' => ['required', 'numeric', 'min:1', 'max:1000000'],
             'artwork_file' => [
@@ -75,6 +83,7 @@ class ArtworkController extends Controller
                 'max:5120'
             ],
         ]);
+        $topics = $this->parseTopics($validated['topics'] ?? '');
 
         if ($request->hasFile('artwork_file')) {
             $newImage = $request->file('artwork_file')
@@ -98,6 +107,7 @@ class ArtworkController extends Controller
         $artwork->reviewed_at = null;
 
         $artwork->save();
+        $this->replaceTopics($artwork, $topics);
 
         return redirect()
             ->route('artist.inventory')
@@ -128,5 +138,41 @@ class ArtworkController extends Controller
     403,
     'You are not authorized to manage this artwork.'
 );
+    }
+
+    private function parseTopics(string $input): array
+    {
+        $topics = [];
+        foreach (explode(',', $input) as $topic) {
+            $topic = preg_replace('/\s+/u', ' ', trim($topic)) ?? '';
+            if ($topic !== '') {
+                $topics[Str::lower($topic)] ??= $topic;
+            }
+        }
+
+        $topics = array_values($topics);
+        Validator::make(['topics' => $topics], [
+            'topics' => ['array', 'max:8'],
+            'topics.*' => ['required', 'string', 'max:40'],
+        ])->validate();
+
+        return $topics;
+    }
+
+    private function replaceTopics(Artwork $artwork, array $topics): void
+    {
+        $artwork->topics()->delete();
+
+        if ($topics === []) {
+            return;
+        }
+
+        $artwork->topics()->createMany(array_map(
+            fn (string $topic) => [
+                'name' => $topic,
+                'normalized_name' => Str::lower($topic),
+            ],
+            $topics
+        ));
     }
 }

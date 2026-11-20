@@ -361,6 +361,7 @@ class ArtistOrderFlowTest extends TestCase
         $this->put(route('artist.inventory.update', $artwork), [
             'title' => 'Updated artwork',
             'country' => 'Philippines',
+            'topics' => 'Portrait, Fantasy',
             'description' => 'Updated description',
             'price' => '250.00',
             'artwork_file' => $this->fakePng('updated-artwork.png'),
@@ -368,6 +369,7 @@ class ArtistOrderFlowTest extends TestCase
 
         $artwork->refresh();
         $this->assertSame('Updated artwork', $artwork->title);
+        $this->assertSame(['Portrait', 'Fantasy'], $artwork->topics()->orderBy('id')->pluck('name')->all());
         $this->assertSame('pending', $artwork->status);
         $this->assertNotSame($oldImage, $artwork->image_path);
         Storage::disk('public')->assertMissing($oldImage);

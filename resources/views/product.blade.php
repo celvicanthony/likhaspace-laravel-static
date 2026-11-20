@@ -47,6 +47,9 @@
     $artworkReviews = $isDatabaseArtwork
         ? $artwork->reviews
         : collect();
+    $artworkTopics = $isDatabaseArtwork
+        ? $artwork->topics
+        : collect();
 @endphp
 
 @push('styles')
@@ -236,7 +239,7 @@
 
                 <div class="product-meta-item">
                     <span class="product-meta-label">Category</span>
-                    <span class="product-meta-value">Digital Art</span>
+                    <span class="product-meta-value">{{ $artworkTopics->isNotEmpty() ? $artworkTopics->pluck('name')->join(', ') : 'Digital Art' }}</span>
                 </div>
 
                 <div class="product-meta-item">

@@ -46,6 +46,11 @@ class Artwork extends Model
         return $this->hasMany(ArtworkReview::class);
     }
 
+    public function topics(): HasMany
+    {
+        return $this->hasMany(ArtworkTopic::class);
+    }
+
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);

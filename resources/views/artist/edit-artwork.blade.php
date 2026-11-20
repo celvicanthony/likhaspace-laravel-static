@@ -40,6 +40,22 @@
                     </select>
                     @error('country')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
+                <div class="col-12">
+                    <label class="form-label" for="artwork-topics">Artwork topics</label>
+                    <input
+                        id="artwork-topics"
+                        name="topics"
+                        type="text"
+                        class="form-control @error('topics') is-invalid @enderror @error('topics.*') is-invalid @enderror"
+                        value="{{ old('topics', $artwork->topics->pluck('name')->join(', ')) }}"
+                        maxlength="400"
+                        placeholder="Mythology, Fantasy, Creature design"
+                        aria-describedby="artwork-topics-help"
+                    >
+                    <div id="artwork-topics-help" class="form-text text-muted">Enter up to 8 custom topics, separated by commas (40 characters each).</div>
+                    @error('topics')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    @error('topics.*')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
                 <div class="col-12 col-md-3">
                     <label class="form-label" for="artwork-price">Price (PHP)</label>
                     <input id="artwork-price" name="price" type="number" min="1" max="1000000" step="0.01" class="form-control @error('price') is-invalid @enderror" value="{{ old('price', $artwork->price) }}" required>

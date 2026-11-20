@@ -303,18 +303,27 @@ class RoleAccessTest extends TestCase
         $this->actingAs($artist)->post(route('artist.inventory.submit'), [
             'title' => 'Moonlit Selkie',
             'country' => 'Scotland',
+            'topics' => 'Mythology, Fantasy, Mythology',
             'price' => '1850',
             'artwork_file' => UploadedFile::fake()->create('selkie.png', 10, 'image/png'),
         ])->assertRedirect(route('artist.inventory'));
 
         $artwork = \App\Models\Artwork::where('user_id', $artist->id)->where('title', 'Moonlit Selkie')->firstOrFail();
         $this->assertSame('pending', $artwork->status);
+        $this->assertSame(['Mythology', 'Fantasy'], $artwork->topics()->orderBy('id')->pluck('name')->all());
 
         $this->actingAs($admin)->withSession(['admin_clearance_at' => now()->timestamp])
             ->post(route('admin.approvals.action', $artwork->id), ['status' => 'approved'])
             ->assertSessionHas('status', 'Artwork approved.');
 
         $this->assertSame('approved', $artwork->fresh()->status);
+        $this->get(route('explore', ['topic' => 'fantasy']))
+            ->assertOk()
+            ->assertSee('Moonlit Selkie')
+            ->assertSee('Fantasy');
+        $this->get(route('explore', ['search' => 'mythology']))
+            ->assertOk()
+            ->assertSee('Moonlit Selkie');
     }
 
     private function makeUser(string $role, ?string $artistId, string $email, string $password = 'password'): User

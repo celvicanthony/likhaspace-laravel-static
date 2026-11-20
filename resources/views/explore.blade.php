@@ -172,7 +172,7 @@
     <p>Discover digital artwork from independent artists around the world.</p>
 </section>
 
-{{-- SEARCH, COUNTRY FILTER, AND SORTING --}}
+{{-- SEARCH, CULTURE AND TOPIC FILTERS, AND SORTING --}}
 <form action="{{ route('explore') }}" method="GET">
 
     <section class="explore-toolbar" aria-label="Search and filter artworks">
@@ -193,8 +193,8 @@
                 value="{{ $search ?? request('search') }}">
         </div>
 
-        {{-- Country Filter --}}
-        <div class="filter-pills" role="group" aria-label="Filter by country">
+        {{-- Culture Filter --}}
+        <div class="filter-pills" role="group" aria-label="Filter by culture">
 
             <button
                 type="button"
@@ -218,6 +218,17 @@
                 id="selectedCountry"
                 value="{{ $selectedCountry ?? 'all' }}">
         </div>
+
+        <select
+            id="artTopic"
+            name="topic"
+            class="form-select sort-select"
+            aria-label="Filter by artwork topic">
+            <option value="all" {{ ($selectedTopic ?? 'all') === 'all' ? 'selected' : '' }}>All topics</option>
+            @foreach ($topics ?? [] as $topic)
+                <option value="{{ $topic->normalized_name }}" @selected(($selectedTopic ?? 'all') === $topic->normalized_name)>{{ $topic->name }}</option>
+            @endforeach
+        </select>
 
         {{-- Sorting --}}
         <select
@@ -342,6 +353,14 @@
                         @endif
                     </p>
 
+                    @if ($artwork->topics->isNotEmpty())
+                        <div class="d-flex flex-wrap gap-1 mb-2">
+                            @foreach ($artwork->topics as $topic)
+                                <span class="badge rounded-pill border text-muted">{{ $topic->name }}</span>
+                            @endforeach
+                        </div>
+                    @endif
+
                     <div
                         class="d-flex align-items-center justify-content-between border-top pt-3"
                         style="border-color: var(--line) !important">
@@ -405,9 +424,9 @@
 @endif
 
 {{-- NO SEARCH RESULTS --}}
-@if ($artworks->isEmpty() && request()->hasAny(['search', 'country']))
+@if ($artworks->isEmpty() && request()->hasAny(['search', 'country', 'topic']))
     <div class="empty-results mt-3">
-        No artworks match your search. Try another artist, title, or country.
+        No artworks match your search. Try another artist, title, culture, or topic.
     </div>
 @endif
 
@@ -419,6 +438,7 @@
     const selectedCountryInput = document.getElementById('selectedCountry');
     const searchForm = document.querySelector('form[action="{{ route('explore') }}"]');
     const sortSelect = document.getElementById('artSort');
+    const topicSelect = document.getElementById('artTopic');
 
     document.querySelectorAll('.art-card[data-detail-url]').forEach(card => {
         card.addEventListener('click', event => {
@@ -452,6 +472,10 @@
 
     // Automatically submit when sorting changes
     sortSelect.addEventListener('change', () => {
+        searchForm.submit();
+    });
+
+    topicSelect.addEventListener('change', () => {
         searchForm.submit();
     });
 </script>

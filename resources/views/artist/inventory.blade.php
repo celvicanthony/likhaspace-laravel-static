@@ -176,6 +176,23 @@
                     >
                 </div>
 
+                <div class="col-12">
+                    <label class="form-label" for="artwork-topics">Artwork topics</label>
+                    <input
+                        id="artwork-topics"
+                        name="topics"
+                        type="text"
+                        class="form-control @error('topics') is-invalid @enderror @error('topics.*') is-invalid @enderror"
+                        value="{{ old('topics') }}"
+                        maxlength="400"
+                        placeholder="Mythology, Fantasy, Creature design"
+                        aria-describedby="artwork-topics-help"
+                    >
+                    <div id="artwork-topics-help" class="form-text text-muted">Enter up to 8 custom topics, separated by commas (40 characters each).</div>
+                    @error('topics')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    @error('topics.*')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
                 {{-- DESCRIPTION --}}
                 <div class="col-12">
                     <label class="form-label" for="artwork-description">
@@ -292,6 +309,9 @@
                                         <div class="artwork-description">
                                             {{ \Illuminate\Support\Str::limit($artwork->description, 65) }}
                                         </div>
+                                        @if ($artwork->topics->isNotEmpty())
+                                            <div class="small text-muted mt-1">{{ $artwork->topics->pluck('name')->join(', ') }}</div>
+                                        @endif
                                     </div>
 
                                 </div>
